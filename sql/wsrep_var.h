@@ -85,4 +85,6 @@ extern bool wsrep_desync_update              UPDATE_ARGS;
 
 extern bool wsrep_max_ws_size_update         UPDATE_ARGS;
 
+extern bool wsrep_reject_queries_update      UPDATE_ARGS;
+
 #endif /* WSREP_VAR_H */
