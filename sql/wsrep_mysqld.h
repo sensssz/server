@@ -338,4 +338,5 @@ void wsrep_init_sidno(const wsrep_uuid_t&);
 #endif /* GTID_SUPPORT */
 
 bool wsrep_node_is_donor();
+bool wsrep_node_is_synced();
 #endif /* WSREP_MYSQLD_H */
