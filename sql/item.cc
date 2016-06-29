@@ -3132,7 +3132,7 @@ Item_param::Item_param(THD *thd, uint pos_in_query_arg):
   Item_basic_value(thd),
   Rewritable_query_parameter(pos_in_query_arg, 1),
   Type_handler_hybrid_field_type(MYSQL_TYPE_VARCHAR),
-  state(NO_VALUE),
+  state(NO_VALUE), indicators(0),
   /* Don't pretend to be a literal unless value for this item is set. */
   item_type(PARAM_ITEM),
   set_param_func(default_set_param_func),

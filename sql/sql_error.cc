@@ -320,7 +320,7 @@ Sql_condition::set_sqlstate(const char* sqlstate)
 }
 
 Diagnostics_area::Diagnostics_area(bool initialize)
-  : m_main_wi(0, false, initialize)
+  : is_bulk_execution(0), m_main_wi(0, false, initialize)
 {
   push_warning_info(&m_main_wi);
 
@@ -330,7 +330,8 @@ Diagnostics_area::Diagnostics_area(bool initialize)
 Diagnostics_area::Diagnostics_area(ulonglong warning_info_id,
                                    bool allow_unlimited_warnings,
                                    bool initialize)
-  : m_main_wi(warning_info_id, allow_unlimited_warnings, initialize)
+  : is_bulk_execution(0),
+  m_main_wi(warning_info_id, allow_unlimited_warnings, initialize)
 {
   push_warning_info(&m_main_wi);
 
@@ -376,7 +377,7 @@ Diagnostics_area::set_ok_status(ulonglong affected_rows,
                                 const char *message)
 {
   DBUG_ENTER("set_ok_status");
-  DBUG_ASSERT(! is_set());
+  DBUG_ASSERT(!is_set() || (m_status == DA_OK_BULK && is_bulk_op()));
   /*
     In production, refuse to overwrite an error or a custom response
     with an OK packet.
@@ -384,14 +385,23 @@ Diagnostics_area::set_ok_status(ulonglong affected_rows,
   if (is_error() || is_disabled())
     return;
 
-  m_statement_warn_count= current_statement_warn_count();
-  m_affected_rows= affected_rows;
+  if (m_status == DA_OK_BULK)
+  {
+    DBUG_ASSERT(is_bulk_op());
+    m_statement_warn_count+= current_statement_warn_count();
+    m_affected_rows+= affected_rows;
+  }
+  else
+  {
+    m_statement_warn_count= current_statement_warn_count();
+    m_affected_rows= affected_rows;
+    m_status= (is_bulk_op() ? DA_OK_BULK : DA_OK);
+  }
   m_last_insert_id= last_insert_id;
   if (message)
     strmake_buf(m_message, message);
   else
     m_message[0]= '\0';
-  m_status= DA_OK;
   DBUG_VOID_RETURN;
 }
 

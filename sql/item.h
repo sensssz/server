@@ -2667,6 +2667,12 @@ public:
   } state;
 
   /*
+    Used for bulk protocol. Indicates if we should expect
+    indicators byte before value of the parameter
+  */
+  my_bool indicators;
+
+  /*
     A buffer for string and long data values. Historically all allocated
     values returned from val_str() were treated as eligible to
     modification. I. e. in some cases Item_func_concat can append it's
