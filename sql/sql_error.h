@@ -712,7 +712,10 @@ public:
                 m_status == DA_OK_BULK); return m_message; }
 
   bool skip_flush() const
-  { DBUG_ASSERT(m_status == DA_OK); return m_skip_flush; }
+  {
+    DBUG_ASSERT(m_status == DA_OK || m_status == DA_OK_BULK);
+    return m_skip_flush;
+  }
 
   void set_skip_flush()
   { m_skip_flush= TRUE; }

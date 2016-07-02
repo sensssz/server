@@ -3132,7 +3132,8 @@ Item_param::Item_param(THD *thd, uint pos_in_query_arg):
   Item_basic_value(thd),
   Rewritable_query_parameter(pos_in_query_arg, 1),
   Type_handler_hybrid_field_type(MYSQL_TYPE_VARCHAR),
-  state(NO_VALUE), indicators(0),
+  state(NO_VALUE), default_value_ref(NULL), default_value_source(NULL),
+  indicators(0),
   /* Don't pretend to be a literal unless value for this item is set. */
   item_type(PARAM_ITEM),
   set_param_func(default_set_param_func),
@@ -3441,6 +3442,8 @@ void Item_param::reset()
     DBUG_ASSERTS(state != NO_VALUE) in all Item_param::get_*
     methods).
   */
+
+  default_value_source= NULL;
   DBUG_VOID_RETURN;
 }
 
@@ -3723,7 +3726,9 @@ bool Item_param::basic_const_item() const
 Item *
 Item_param::clone_item(THD *thd)
 {
+
   MEM_ROOT *mem_root= thd->mem_root;
+
   switch (state) {
   case NULL_VALUE:
     return new (mem_root) Item_null(thd, name);
@@ -3824,12 +3829,37 @@ Item_param::set_param_type_and_swap_value(Item_param *src)
   null_value= src->null_value;
   state= src->state;
   value= src->value;
+  default_value_ref= src->default_value_ref;
+  default_value_source= src->default_value_source;
+
 
   decimal_value.swap(src->decimal_value);
   str_value.swap(src->str_value);
   str_value_ptr.swap(src->str_value_ptr);
 }
 
+
+bool Item_param::set_default()
+{
+  if (!default_value_ref)
+  {
+    my_message(ER_INVALID_DEFAULT_PARAM,
+               ER_THD(current_thd, ER_INVALID_DEFAULT_PARAM), MYF(0));
+    return TRUE;
+  }
+  THD *thd= default_value_ref->table->in_use;
+  if (!default_value_source)
+  {
+    default_value_source= new (thd->mem_root)
+      Item_default_value(thd, &thd->lex->select_lex.context, default_value_ref);
+    if (!default_value_source ||
+        default_value_source->fix_fields(thd, (Item **)&default_value_source))
+      return TRUE;
+    bitmap_set_bit(default_value_ref->table->read_set,
+                   default_value_ref->field_index);
+  }
+  return set_value(thd, NULL, (Item**)&default_value_source);
+}
 
 /**
   This operation is intended to store some item value in Item_param to be
@@ -3987,6 +4017,17 @@ bool Item_param::append_for_log(THD *thd, String *str)
   StringBuffer<STRING_BUFFER_USUAL_SIZE> buf;
   const String *val= query_val_str(thd, &buf);
   return str->append(*val);
+}
+
+
+bool Item_param::walk(Item_processor processor, bool walk_subquery, void *arg)
+{
+  if (default_value_source &&
+      default_value_source->walk(processor, walk_subquery, arg))
+  {
+    return TRUE;
+  }
+  return (this->*processor)(arg);
 }
 
 /****************************************************************************
@@ -8196,36 +8237,38 @@ bool Item_default_value::eq(const Item *item, bool binary_cmp) const
 bool Item_default_value::fix_fields(THD *thd, Item **items)
 {
   Item *real_arg;
-  Item_field *field_arg;
   Field *def_field;
   DBUG_ASSERT(fixed == 0);
 
-  if (!arg)
+  if (!arg && !arg_fld)
   {
     fixed= 1;
     return FALSE;
   }
-  if (!arg->fixed && arg->fix_fields(thd, &arg))
-    goto error;
-
-
-  real_arg= arg->real_item();
-  if (real_arg->type() != FIELD_ITEM)
+  if (arg)
   {
-    my_error(ER_NO_DEFAULT_FOR_FIELD, MYF(0), arg->name);
+    if (!arg->fixed && arg->fix_fields(thd, &arg))
+      goto error;
+
+
+    real_arg= arg->real_item();
+    if (real_arg->type() != FIELD_ITEM)
+    {
+      my_error(ER_NO_DEFAULT_FOR_FIELD, MYF(0), arg->name);
+      goto error;
+    }
+
+    arg_fld= ((Item_field *)real_arg)->field;
+  }
+  if ((arg_fld->flags & NO_DEFAULT_VALUE_FLAG))
+  {
+    my_error(ER_NO_DEFAULT_FOR_FIELD, MYF(0), arg_fld->field_name);
     goto error;
   }
-
-  field_arg= (Item_field *)real_arg;
-  if ((field_arg->field->flags & NO_DEFAULT_VALUE_FLAG))
-  {
-    my_error(ER_NO_DEFAULT_FOR_FIELD, MYF(0), field_arg->field->field_name);
+  if (!(def_field= (Field*) thd->alloc(arg_fld->size_of())))
     goto error;
-  }
-  if (!(def_field= (Field*) thd->alloc(field_arg->field->size_of())))
-    goto error;
-  memcpy((void *)def_field, (void *)field_arg->field,
-         field_arg->field->size_of());
+  memcpy((void *)def_field, (void *)arg_fld,
+         arg_fld->size_of());
   def_field->move_field_offset((my_ptrdiff_t)
                                (def_field->table->s->default_values -
                                 def_field->table->record[0]));

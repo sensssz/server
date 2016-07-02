@@ -1836,6 +1836,8 @@ public:
   */
   virtual void under_not(Item_func_not * upper
                          __attribute__((unused))) {};
+
+  virtual void set_default_value_source(Field *fld) {};
 };
 
 
@@ -2641,6 +2643,9 @@ public:
   }
 };
 
+
+class Item_default_value;
+
 /*
   Item represents one placeholder ('?') of prepared statement
 
@@ -2666,6 +2671,8 @@ public:
     DECIMAL_VALUE
   } state;
 
+  Field *default_value_ref;
+  Item_default_value *default_value_source;
   /*
     Used for bulk protocol. Indicates if we should expect
     indicators byte before value of the parameter
@@ -2729,6 +2736,10 @@ public:
   bool get_date(MYSQL_TIME *tm, ulonglong fuzzydate);
   int  save_in_field(Field *field, bool no_conversions);
 
+  virtual void set_default_value_source(Field *fld)
+  { default_value_ref= fld; }
+
+  bool set_default();
   void set_null();
   void set_int(longlong i, uint32 max_length_arg);
   void set_double(double i);
@@ -2772,8 +2783,8 @@ public:
     constant, assert otherwise. This method is called only if
     basic_const_item returned TRUE.
   */
-  Item *safe_charset_converter(THD *thd, CHARSET_INFO *tocs);
   Item *clone_item(THD *thd);
+  Item *safe_charset_converter(THD *thd, CHARSET_INFO *tocs);
   /*
     Implement by-value equality evaluation if parameter value
     is set and is a basic constant (integer, real or string).
@@ -2799,6 +2810,7 @@ public:
 
   virtual void make_field(THD *thd, Send_field *field);
 
+  virtual bool walk(Item_processor processor, bool walk_subquery, void *arg);
 private:
   Send_field *m_out_param_info;
 };
@@ -4880,14 +4892,19 @@ class Item_default_value : public Item_field
   void calculate();
 public:
   Item *arg;
+  Field *arg_fld;
   Item_default_value(THD *thd, Name_resolution_context *context_arg)
     :Item_field(thd, context_arg, (const char *)NULL, (const char *)NULL,
                (const char *)NULL),
-     arg(NULL) {}
+     arg(NULL), arg_fld(NULL) {}
   Item_default_value(THD *thd, Name_resolution_context *context_arg, Item *a)
     :Item_field(thd, context_arg, (const char *)NULL, (const char *)NULL,
                 (const char *)NULL),
-     arg(a) {}
+     arg(a), arg_fld(NULL) {}
+  Item_default_value(THD *thd, Name_resolution_context *context_arg, Field *a)
+    :Item_field(thd, context_arg, (const char *)NULL, (const char *)NULL,
+                (const char *)NULL),
+     arg(NULL), arg_fld(a) {}
   enum Type type() const { return DEFAULT_VALUE_ITEM; }
   bool eq(const Item *item, bool binary_cmp) const;
   bool fix_fields(THD *, Item **);

@@ -394,7 +394,7 @@ const LEX_STRING command_name[257]={
   { 0, 0 }, //250
   { 0, 0 }, //251
   { 0, 0 }, //252
-  { C_STRING_WITH_LEN("Execute_bulk") }, //253
+  { 0, 0 }, //253
   { C_STRING_WITH_LEN("Com_multi") }, //254
   { C_STRING_WITH_LEN("Error") }  // Last command number 255
 };
@@ -1731,12 +1731,12 @@ bool dispatch_command(enum enum_server_command command, THD *thd,
   }
   case COM_STMT_EXECUTE:
   {
-    mysqld_stmt_execute(thd, packet, packet_length);
-    break;
-  }
-  case COM_STMT_BULK_EXECUTE:
-  {
-    mysqld_stmt_bulk_execute(thd, packet, packet_length);
+    ulong iterations= uint4korr(packet + 5);
+    if (iterations < 2  ||
+        (thd->client_capabilities & MARIADB_CLIENT_STMT_BULK_OPERATIONS))
+      mysqld_stmt_execute(thd, packet, packet_length);
+    else
+      mysqld_stmt_bulk_execute(thd, packet, packet_length);
     break;
   }
   case COM_STMT_FETCH:

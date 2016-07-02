@@ -991,7 +991,7 @@ static bool insert_bulk_params(Prepared_statement *stmt,
         indicators= *((*read_pos)++);
       else
         indicators= STMT_INDICATOR_NONE;
-      if ((*read_pos) >= data_end)
+      if ((*read_pos) > data_end)
         DBUG_RETURN(1);
       switch (indicators) {
       case STMT_INDICATOR_NONE:
@@ -1005,8 +1005,8 @@ static bool insert_bulk_params(Prepared_statement *stmt,
         param->set_null();
         break;
       case STMT_INDICATOR_DEFAULT:
-        // TODO: support default
-        DBUG_ASSERT(0);
+        if (param->set_default())
+          DBUG_RETURN(1);
         break;
       }
     }
@@ -4079,11 +4079,12 @@ reexecute:
 
 my_bool bulk_parameters_set(THD *thd)
 {
+  DBUG_ENTER("bulk_parameters_set");
   Prepared_statement *stmt= (Prepared_statement *) thd->bulk_param;
 
   if (stmt && stmt->set_bulk_parameters())
-    return FALSE;
-  return FALSE;
+    DBUG_RETURN(TRUE);
+  DBUG_RETURN(FALSE);
 }
 
 ulong bulk_parameters_iterations(THD *thd)
@@ -4097,6 +4098,8 @@ ulong bulk_parameters_iterations(THD *thd)
 
 my_bool Prepared_statement::set_bulk_parameters()
 {
+  DBUG_ENTER("Prepared_statement::set_bulk_parameters");
+  DBUG_PRINT("info", ("iteration: %lu", iterations));
   if (iterations)
   {
 #ifndef EMBEDDED_LIBRARY
@@ -4108,12 +4111,12 @@ my_bool Prepared_statement::set_bulk_parameters()
       my_error(ER_WRONG_ARGUMENTS, MYF(0),
                "mysqld_stmt_bulk_execute");
       reset_stmt_params(this);
-      return true;
+      DBUG_RETURN(true);
     }
     iterations--;
   }
   start_param= 0;
-  return false;
+  DBUG_RETURN(false);
 }
 
 ulong Prepared_statement::bulk_iterations()
@@ -4170,7 +4173,7 @@ Prepared_statement::execute_bulk_loop(String *expanded_query,
   }
 
 #ifdef NOT_YET_FROM_MYSQL_5_6
-  if (unlikely(thd->security_ctx->password_expired && 
+  if (unlikely(thd->security_ctx->password_expired &&
                !lex->is_change_password))
   {
     my_error(ER_MUST_CHANGE_PASSWORD, MYF(0));

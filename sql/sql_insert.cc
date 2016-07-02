@@ -637,6 +637,50 @@ static void save_insert_query_plan(THD* thd, TABLE_LIST *table_list)
   }
 }
 
+static
+void setup_deault_parameters(TABLE_LIST *table, List<Item> *fields,
+                             List<Item> *values)
+{
+
+  List_iterator_fast<Item> itv(*values);
+  Item *val;
+  if (fields->elements)
+  {
+    List_iterator_fast<Item> itf(*fields);
+    Item *fld;
+    while((fld= itf++) && (val= itv++))
+    {
+      fld= fld->real_item();
+      if (fld->type() == Item::FIELD_ITEM)
+        val->set_default_value_source(((Item_field *)fld)->field);
+    }
+  }
+  else if (table != NULL)
+  {
+    if (table->view)
+    {
+      Field_iterator_view field_it;
+      field_it.set(table);
+      for (; !field_it.end_of_fields() && (val= itv++); field_it.next())
+      {
+        Item *fld= field_it.item()->real_item();
+        if (fld->type() == Item::FIELD_ITEM)
+          val->set_default_value_source(((Item_field *)fld)->field);
+      }
+    }
+    else
+    {
+      Field_iterator_table_ref field_it;
+      field_it.set(table);
+      for (; !field_it.end_of_fields() && (val= itv++); field_it.next())
+      {
+        Field *fld= field_it.field();
+        val->set_default_value_source(fld);
+      }
+    }
+  }
+}
+
 
 /**
   INSERT statement implementation
@@ -727,11 +771,9 @@ bool mysql_insert(THD *thd,TABLE_LIST *table_list,
   THD_STAGE_INFO(thd, stage_init);
   thd->lex->used_tables=0;
   values= its++;
-  DBUG_ASSERT(bulk_iterations > 0);
-  if (bulk_parameters_set(thd))
-    DBUG_RETURN(TRUE);
   value_count= values->elements;
 
+  DBUG_ASSERT(bulk_iterations > 0);
   if (mysql_prepare_insert(thd, table_list, table, fields, values,
 			   update_fields, update_values, duplic, &unused_conds,
                            FALSE,
@@ -775,6 +817,7 @@ bool mysql_insert(THD *thd,TABLE_LIST *table_list,
     if (setup_fields(thd, Ref_ptr_array(), *values, MARK_COLUMNS_READ, 0, 0))
       goto abort;
     switch_to_nullable_trigger_fields(*values, table);
+    setup_deault_parameters(table_list, &fields, values);
   }
   its.rewind ();
  
@@ -1458,6 +1501,7 @@ bool mysql_prepare_insert(THD *thd, TABLE_LIST *table_list,
   /* Prepare the fields in the statement. */
   if (values)
   {
+
     /* if we have INSERT ... VALUES () we cannot have a GROUP BY clause */
     DBUG_ASSERT (!select_lex->group_list.elements);
 
@@ -1475,6 +1519,10 @@ bool mysql_prepare_insert(THD *thd, TABLE_LIST *table_list,
                        *values, MARK_COLUMNS_READ, 0, 0) ||
           check_insert_fields(thd, context->table_list, fields, *values,
                               !insert_into_view, 0, &map));
+
+    setup_deault_parameters(table_list, &fields, values);
+    if (bulk_parameters_set(thd))
+      DBUG_RETURN(TRUE);
 
     if (!res && check_fields)
     {
