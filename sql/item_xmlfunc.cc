@@ -387,19 +387,6 @@ public:
 
 
 /*
-  We need to distinguish a number from a boolean:
-  a[1] and a[true] are different things in XPath.
-*/
-class Item_bool :public Item_int
-{
-public:
-  Item_bool(THD *thd, int32 i): Item_int(thd, i) {}
-  const char *func_name() const { return "xpath_bool"; }
-  bool is_bool_type() { return true; }
-};
-
-
-/*
   Converts its argument into a boolean value.
   * a number is true if it is non-zero
   * a node-set is true if and only if it is non-empty
@@ -1180,13 +1167,13 @@ my_xpath_keyword(MY_XPATH *x,
 
 static Item *create_func_true(MY_XPATH *xpath, Item **args, uint nargs)
 {
-  return new (xpath->thd->mem_root) Item_bool(xpath->thd, 1);
+  return new (xpath->thd->mem_root) Item_bool(xpath->thd, "xpath_bool", 1);
 }
 
 
 static Item *create_func_false(MY_XPATH *xpath, Item **args, uint nargs)
 {
-  return new (xpath->thd->mem_root) Item_bool(xpath->thd, 0);
+  return new (xpath->thd->mem_root) Item_bool(xpath->thd, "xpath_bool", 0);
 }
 
 

@@ -1190,9 +1190,12 @@ my_lengthsp_mb2(CHARSET_INFO *cs __attribute__((unused)),
 #endif /* HAVE_CHARSET_mb2*/
 
 
+/*
+  Next part is actually HAVE_CHARSET_utf16-specific,
+  but it the JSON functions needed my_utf16_uni()
+  so the #ifdef was moved lower.
+*/
 
-
-#ifdef HAVE_CHARSET_utf16
 
 /*
   D800..DB7F - Non-provate surrogate high (896 pages)
@@ -1246,7 +1249,7 @@ static inline int my_weight_mb2_utf16mb2_general_ci(uchar b0, uchar b1)
 #undef IS_MB2_CHAR
 #undef IS_MB4_CHAR
 
-static int
+int
 my_utf16_uni(CHARSET_INFO *cs __attribute__((unused)),
              my_wc_t *pwc, const uchar *s, const uchar *e)
 {
@@ -1277,6 +1280,9 @@ my_utf16_uni(CHARSET_INFO *cs __attribute__((unused)),
   *pwc= MY_UTF16_WC2(s[0], s[1]);
   return 2;
 }
+
+
+#ifdef HAVE_CHARSET_utf16
 
 
 static int

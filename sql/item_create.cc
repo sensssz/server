@@ -1708,6 +1708,71 @@ protected:
 #endif
 
 
+class Create_func_json_valid : public Create_func_arg1
+{
+public:
+  virtual Item *create_1_arg(THD *thd, Item *arg1);
+
+  static Create_func_json_valid s_singleton;
+
+protected:
+  Create_func_json_valid() {}
+  virtual ~Create_func_json_valid() {}
+};
+
+
+class Create_func_json_value : public Create_func_arg2
+{
+public:
+  virtual Item *create_2_arg(THD *thd, Item *arg1, Item *arg2);
+
+  static Create_func_json_value s_singleton;
+
+protected:
+  Create_func_json_value() {}
+  virtual ~Create_func_json_value() {}
+};
+
+
+class Create_func_json_contains_path : public Create_native_func
+{
+public:
+  virtual Item *create_native(THD *thd, LEX_STRING name, List<Item> *item_list);
+
+  static Create_func_json_contains_path s_singleton;
+
+protected:
+  Create_func_json_contains_path() {}
+  virtual ~Create_func_json_contains_path() {}
+};
+
+
+class Create_func_json_extract : public Create_native_func
+{
+public:
+  virtual Item *create_native(THD *thd, LEX_STRING name, List<Item> *item_list);
+
+  static Create_func_json_extract s_singleton;
+
+protected:
+  Create_func_json_extract() {}
+  virtual ~Create_func_json_extract() {}
+};
+
+
+class Create_func_json_array_append : public Create_native_func
+{
+public:
+  virtual Item *create_native(THD *thd, LEX_STRING name, List<Item> *item_list);
+
+  static Create_func_json_array_append s_singleton;
+
+protected:
+  Create_func_json_array_append() {}
+  virtual ~Create_func_json_array_append() {}
+};
+
+
 class Create_func_last_day : public Create_func_arg1
 {
 public:
@@ -4572,12 +4637,105 @@ Create_func_issimple::create_1_arg(THD *thd, Item *arg1)
 #endif
 
 
+Create_func_json_valid Create_func_json_valid::s_singleton;
+
+Item*
+Create_func_json_valid::create_1_arg(THD *thd, Item *arg1)
+{
+  return new (thd->mem_root) Item_func_json_valid(thd, arg1);
+}
+
+
+Create_func_json_value Create_func_json_value::s_singleton;
+
+Item*
+Create_func_json_value::create_2_arg(THD *thd, Item *arg1, Item *arg2)
+{
+  return new (thd->mem_root) Item_func_json_value(thd, arg1, arg2);
+}
+
+
 Create_func_last_day Create_func_last_day::s_singleton;
 
 Item*
 Create_func_last_day::create_1_arg(THD *thd, Item *arg1)
 {
   return new (thd->mem_root) Item_func_last_day(thd, arg1);
+}
+
+
+Create_func_json_array_append Create_func_json_array_append::s_singleton;
+
+Item*
+Create_func_json_array_append::create_native(THD *thd, LEX_STRING name,
+                                                 List<Item> *item_list)
+{
+  Item *func= NULL;
+  int arg_count= 0;
+
+  if (item_list != NULL)
+    arg_count= item_list->elements;
+
+  if (arg_count < 3 || (arg_count & 1) == 0 /*is even*/)
+  {
+    my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
+  }
+  else
+  {
+    func= new (thd->mem_root) Item_func_json_array_append(thd, *item_list);
+  }
+
+  return func;
+}
+
+
+Create_func_json_contains_path Create_func_json_contains_path::s_singleton;
+
+Item*
+Create_func_json_contains_path::create_native(THD *thd, LEX_STRING name,
+                                                 List<Item> *item_list)
+{
+  Item *func= NULL;
+  int arg_count= 0;
+
+  if (item_list != NULL)
+    arg_count= item_list->elements;
+
+  if (arg_count < 3 /* json_doc, one_or_all, path, [path]...*/)
+  {
+    my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
+  }
+  else
+  {
+    func= new (thd->mem_root) Item_func_json_contains_path(thd, *item_list);
+  }
+
+  return func;
+}
+
+
+Create_func_json_extract Create_func_json_extract::s_singleton;
+
+Item*
+Create_func_json_extract::create_native(THD *thd, LEX_STRING name,
+                                                 List<Item> *item_list)
+{
+  Item *func= NULL;
+  int arg_count= 0;
+
+  if (item_list != NULL)
+    arg_count= item_list->elements;
+
+  if (arg_count < 2 /* json_doc, path, [path]...*/)
+  {
+    my_error(ER_WRONG_PARAMCOUNT_TO_NATIVE_FCT, MYF(0), name.str);
+  }
+  else
+  {
+    func= new (thd->mem_root) Item_func_json_extract(thd, *item_list);
+  }
+
+  return func;
 }
 
 
@@ -5852,6 +6010,11 @@ static Native_func_registry func_array[] =
   { { C_STRING_WITH_LEN("ISSIMPLE") }, GEOM_BUILDER(Create_func_issimple)},
   { { C_STRING_WITH_LEN("IS_FREE_LOCK") }, BUILDER(Create_func_is_free_lock)},
   { { C_STRING_WITH_LEN("IS_USED_LOCK") }, BUILDER(Create_func_is_used_lock)},
+  { { C_STRING_WITH_LEN("JSON_ARRAY_APPEND") }, BUILDER(Create_func_json_array_append)},
+  { { C_STRING_WITH_LEN("JSON_CONTAINS_PATH") }, BUILDER(Create_func_json_contains_path)},
+  { { C_STRING_WITH_LEN("JSON_EXTRACT") }, BUILDER(Create_func_json_extract)},
+  { { C_STRING_WITH_LEN("JSON_VALID") }, BUILDER(Create_func_json_valid)},
+  { { C_STRING_WITH_LEN("JSON_VALUE") }, BUILDER(Create_func_json_value)},
   { { C_STRING_WITH_LEN("LAST_DAY") }, BUILDER(Create_func_last_day)},
   { { C_STRING_WITH_LEN("LAST_INSERT_ID") }, BUILDER(Create_func_last_insert_id)},
   { { C_STRING_WITH_LEN("LCASE") }, BUILDER(Create_func_lcase)},

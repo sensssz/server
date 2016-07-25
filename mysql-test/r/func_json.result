@@ -1,0 +1,66 @@
+select json_valid('[1, 2]');
+json_valid('[1, 2]')
+1
+select json_valid('"mama"}');
+json_valid('"mama"}')
+0
+select json_valid('{"mama":1, "myla":[2,3]}');
+json_valid('{"mama":1, "myla":[2,3]}')
+1
+select json_valid('[false, true, null]');
+json_valid('[false, true, null]')
+1
+select json_value('{"key1":123}', '$.key2');
+json_value('{"key1":123}', '$.key2')
+NULL
+select json_value('{"key1":123}', '$.key1');
+json_value('{"key1":123}', '$.key1')
+123
+select json_value('{"key1":[1,2,3]}', '$.key1');
+json_value('{"key1":[1,2,3]}', '$.key1')
+NULL
+select json_value('{"key1": [1,2,3], "key1":123}', '$.key1');
+json_value('{"key1": [1,2,3], "key1":123}', '$.key1')
+123
+select json_array_append('["a", "b"]', '$', FALSE);
+json_array_append('["a", "b"]', '$', FALSE)
+["a", "b", false]
+select json_array_append('{"k1":1, "k2":["a", "b"]}', '$.k2', 2);
+json_array_append('{"k1":1, "k2":["a", "b"]}', '$.k2', 2)
+{"k1":1, "k2":["a", "b", 2]}
+select json_contains_path('{"key1":1, "key2":[2,3]}', "oNE", "$.key2[1]");
+json_contains_path('{"key1":1, "key2":[2,3]}', "oNE", "$.key2[1]")
+1
+select json_contains_path('{"key1":1, "key2":[2,3]}', "oNE", "$.key2[10]");
+json_contains_path('{"key1":1, "key2":[2,3]}', "oNE", "$.key2[10]")
+0
+select json_contains_path('{"key1":1, "key2":[2,3]}', "oNE", "$.ma");
+json_contains_path('{"key1":1, "key2":[2,3]}', "oNE", "$.ma")
+0
+select json_contains_path('{"key1":1, "key2":[2,3]}', "one", "$.key1");
+json_contains_path('{"key1":1, "key2":[2,3]}', "one", "$.key1")
+1
+select json_contains_path('{"key1":1, "key2":[2,3]}', "one", "$.key1", "$.ma");
+json_contains_path('{"key1":1, "key2":[2,3]}', "one", "$.key1", "$.ma")
+1
+select json_contains_path('{"key1":1, "key2":[2,3]}', "aLl", "$.key1", "$.ma");
+json_contains_path('{"key1":1, "key2":[2,3]}', "aLl", "$.key1", "$.ma")
+0
+select json_contains_path('{"key1":1, "key2":[2,3]}', "aLl", "$.key1", "$.key2");
+json_contains_path('{"key1":1, "key2":[2,3]}', "aLl", "$.key1", "$.key2")
+1
+select json_extract('{"key1":"asd", "key2":[2,3]}', "$.key1");
+json_extract('{"key1":"asd", "key2":[2,3]}', "$.key1")
+asd
+select json_extract('{"key1":"asd", "key2":[2,3]}', "$.keyX", "$.keyY");
+json_extract('{"key1":"asd", "key2":[2,3]}', "$.keyX", "$.keyY")
+NULL
+select json_extract('{"key1":"asd", "key2":[2,3]}', "$.key1", "$.key2");
+json_extract('{"key1":"asd", "key2":[2,3]}', "$.key1", "$.key2")
+["asd", [2,3]]
+select json_extract('{"key1":5, "key2":[2,3]}', "$.key1", "$.key2");
+json_extract('{"key1":5, "key2":[2,3]}', "$.key1", "$.key2")
+[5, [2,3]]
+select json_extract('{"key0":true, "key1":"qwe"}', "$.key1");
+json_extract('{"key0":true, "key1":"qwe"}', "$.key1")
+qwe
