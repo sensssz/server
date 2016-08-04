@@ -6078,29 +6078,17 @@ int ha_abort_transaction(THD *bf_thd, THD *victim_thd, my_bool signal)
     DBUG_RETURN(0);
   }
 
-  /* Try statement transaction if standard one is not set. */
-  THD_TRANS *trans= (victim_thd->transaction.all.ha_list) ?
-    &victim_thd->transaction.all : &victim_thd->transaction.stmt;
+  handlerton *hton= installed_htons[DB_TYPE_INNODB];
 
-  Ha_trx_info *ha_info= trans->ha_list, *ha_info_next;
-
-  for (; ha_info; ha_info= ha_info_next)
+  if (hton && hton->abort_transaction)
   {
-    handlerton *hton= ha_info->ht();
-    if (!hton->abort_transaction)
-    {
-      /* Skip warning for binlog & wsrep. */
-      if (hton->db_type != DB_TYPE_BINLOG && hton != wsrep_hton)
-      {
-        WSREP_WARN("Cannot abort transaction.");
-      }
-    }
-    else
-    {
-      hton->abort_transaction(hton, bf_thd, victim_thd, signal);
-    }
-    ha_info_next= ha_info->next();
+    hton->abort_transaction(hton, bf_thd, victim_thd, signal);
   }
+  else
+  {
+    WSREP_WARN("Cannot abort transaction.");
+  }
+
   DBUG_RETURN(0);
 }
 
@@ -6108,40 +6096,21 @@ void ha_fake_trx_id(THD *thd)
 {
   DBUG_ENTER("ha_fake_trx_id");
 
-  bool no_fake_trx_id= true;
-
   if (!WSREP(thd))
   {
     DBUG_VOID_RETURN;
   }
 
-  /* Try statement transaction if standard one is not set. */
-  THD_TRANS *trans= (thd->transaction.all.ha_list) ?  &thd->transaction.all :
-    &thd->transaction.stmt;
+  handlerton *hton= installed_htons[DB_TYPE_INNODB];
 
-  Ha_trx_info *ha_info= trans->ha_list, *ha_info_next;
-
-  for (; ha_info; ha_info= ha_info_next)
+  if (hton && hton->fake_trx_id)
   {
-    handlerton *hton= ha_info->ht();
-    if (hton->fake_trx_id)
-    {
-      hton->fake_trx_id(hton, thd);
-
-      /* Got a fake trx id. */
-      no_fake_trx_id= false;
-
-      /*
-        We need transaction ID from just one storage engine providing
-        fake_trx_id (which will most likely be the case).
-      */
-      break;
-    }
-    ha_info_next= ha_info->next();
+    hton->fake_trx_id(hton, thd);
   }
-
-  if (unlikely(no_fake_trx_id))
+  else
+  {
     WSREP_WARN("Cannot get fake transaction ID from storage engine.");
+  }
 
   DBUG_VOID_RETURN;
 }
