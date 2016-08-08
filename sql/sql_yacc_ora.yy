@@ -16089,7 +16089,8 @@ sf_tail:
 
             lex->sphead->set_body_start(thd, lip->get_cpp_tok_start());
           }
-          sp_proc_stmt_in_returns_clause /* $15 */
+          sp_tail_is /* $15 */
+          sp_proc_stmt_in_returns_clause /* $16 */
           {
             LEX *lex= thd->lex;
             sp_head *sp= lex->sphead;
@@ -16170,6 +16171,7 @@ sp_tail:
           {
             Lex->sphead->set_body_start(thd, YYLIP->get_cpp_tok_start());
           }
+          sp_tail_is
           sp_proc_stmt
           {
             LEX *lex= Lex;
@@ -16179,6 +16181,11 @@ sp_tail:
             lex->sql_command= SQLCOM_CREATE_PROCEDURE;
             sp->restore_thd_mem_root(thd);
           }
+        ;
+
+sp_tail_is:
+          IS
+        | AS
         ;
 
 /*************************************************************************/
