@@ -266,21 +266,16 @@ void init_update_queries(void)
 {
   /* Initialize the server command flags array. */
   memset(server_command_flags, 0, sizeof(server_command_flags));
-#ifdef WITH_WSREP
-  server_command_flags[COM_STATISTICS]=   CF_SKIP_QUESTIONS |
-    CF_SKIP_WSREP_CHECK;
-  server_command_flags[COM_PING]=         CF_SKIP_QUESTIONS |
-    CF_SKIP_WSREP_CHECK;
-  server_command_flags[COM_STMT_PREPARE]= CF_SKIP_QUESTIONS |
-    CF_SKIP_WSREP_CHECK;
-  server_command_flags[COM_STMT_EXECUTE]= CF_SKIP_WSREP_CHECK;
-  server_command_flags[COM_STMT_FETCH]=   CF_SKIP_WSREP_CHECK;
-  server_command_flags[COM_STMT_CLOSE]=   CF_SKIP_QUESTIONS |
-    CF_SKIP_WSREP_CHECK;
-  server_command_flags[COM_STMT_RESET]=   CF_SKIP_QUESTIONS |
-    CF_SKIP_WSREP_CHECK;
-  server_command_flags[COM_STMT_SEND_LONG_DATA] = CF_SKIP_WSREP_CHECK;
 
+  server_command_flags[COM_STATISTICS]= CF_SKIP_QUERY_ID | CF_SKIP_QUESTIONS;
+  server_command_flags[COM_PING]=       CF_SKIP_QUERY_ID | CF_SKIP_QUESTIONS;
+  server_command_flags[COM_STMT_PREPARE]= CF_SKIP_QUESTIONS;
+  server_command_flags[COM_STMT_CLOSE]=   CF_SKIP_QUESTIONS;
+  server_command_flags[COM_STMT_RESET]=   CF_SKIP_QUESTIONS;
+
+#ifdef WITH_WSREP
+  server_command_flags[COM_STATISTICS]   |= CF_SKIP_WSREP_CHECK;
+  server_command_flags[COM_PING]         |= CF_SKIP_WSREP_CHECK;
   server_command_flags[COM_QUIT]= CF_SKIP_WSREP_CHECK;
   server_command_flags[COM_PROCESS_INFO]= CF_SKIP_WSREP_CHECK;
   server_command_flags[COM_PROCESS_KILL]= CF_SKIP_WSREP_CHECK;
@@ -290,17 +285,17 @@ void init_update_queries(void)
   server_command_flags[COM_END]= CF_SKIP_WSREP_CHECK;
 
   /*
-    COM_QUERY and COM_SET_OPTION are allowed to pass the early COM_xxx filter,
-    they're checked later in mysql_execute_command().
+    COM_QUERY, COM_SET_OPTION and COM_STMT_XXX are allowed to pass the early
+    COM_xxx filter, they're checked later in mysql_execute_command().
   */
   server_command_flags[COM_QUERY]= CF_SKIP_WSREP_CHECK;
   server_command_flags[COM_SET_OPTION]= CF_SKIP_WSREP_CHECK;
-#else
-  server_command_flags[COM_STATISTICS]= CF_SKIP_QUERY_ID | CF_SKIP_QUESTIONS;
-  server_command_flags[COM_PING]=       CF_SKIP_QUERY_ID | CF_SKIP_QUESTIONS;
-  server_command_flags[COM_STMT_PREPARE]= CF_SKIP_QUESTIONS;
-  server_command_flags[COM_STMT_CLOSE]=   CF_SKIP_QUESTIONS;
-  server_command_flags[COM_STMT_RESET]=   CF_SKIP_QUESTIONS;
+  server_command_flags[COM_STMT_PREPARE] |= CF_SKIP_WSREP_CHECK;
+  server_command_flags[COM_STMT_CLOSE] |= CF_SKIP_WSREP_CHECK;
+  server_command_flags[COM_STMT_RESET] |= CF_SKIP_WSREP_CHECK;
+  server_command_flags[COM_STMT_EXECUTE]= CF_SKIP_WSREP_CHECK;
+  server_command_flags[COM_STMT_FETCH]= CF_SKIP_WSREP_CHECK;
+  server_command_flags[COM_STMT_SEND_LONG_DATA] = CF_SKIP_WSREP_CHECK;
 #endif /* WITH_WSREP */
 
   /* Initialize the sql command flags array. */
@@ -1098,14 +1093,14 @@ bool do_command(THD *thd)
 #ifdef WITH_WSREP
   if (WSREP(thd)) {
     /*
-     * bail out if DB snapshot has not been installed. We however,
-     * allow queries "SET" and "SHOW", they are trapped later in execute_command
-     */
+      Bail out if DB snapshot has not been installed. We however, allow
+      queries "SET" and "SHOW", they are trapped later in execute_command
+    */
     if (thd->variables.wsrep_on && !thd->wsrep_applier && !wsrep_ready &&
-        (server_command_flags[command] & CF_SKIP_WSREP_CHECK) == 0
-    ) {
+        (server_command_flags[command] & CF_SKIP_WSREP_CHECK) == 0)
+    {
       my_message(ER_UNKNOWN_COM_ERROR,
-	       "WSREP has not yet prepared node for application use", MYF(0));
+                 "WSREP has not yet prepared node for application use", MYF(0));
       thd->protocol->end_statement();
 
       /* Performance Schema Interface instrumentation end */
@@ -2665,17 +2660,15 @@ mysql_execute_command(THD *thd)
     }
 
     /*
-     * bail out if DB snapshot has not been installed. We however,
-     * allow SET and SHOW queries
-     */
+      Bail out if DB snapshot has not been installed. We however, allow
+      SET and SHOW queries
+    */
     if (thd->variables.wsrep_on && !thd->wsrep_applier &&
         !(wsrep_ready ||
           (thd->variables.wsrep_dirty_reads &&
            (sql_command_flags[lex->sql_command] & CF_CHANGES_DATA) == 0) ||
           wsrep_tables_accessible_when_detached(all_tables)) &&
         lex->sql_command != SQLCOM_SET_OPTION &&
-        !(thd->variables.wsrep_dirty_reads &&
-          lex->sql_command == SQLCOM_SELECT) &&
         !wsrep_is_show_query(lex->sql_command))
     {
       my_message(ER_UNKNOWN_COM_ERROR,
