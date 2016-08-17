@@ -1,0 +1,47 @@
+#
+# wsrep_reject_queries
+#
+# save the initial value
+SET @wsrep_reject_queries_global_saved = @@global.wsrep_reject_queries;
+# default
+SELECT @@global.wsrep_reject_queries;
+@@global.wsrep_reject_queries
+NONE
+
+# scope
+SELECT @@session.wsrep_reject_queries;
+ERROR HY000: Variable 'wsrep_reject_queries' is a GLOBAL variable
+SET @@global.wsrep_reject_queries=ALL;
+SELECT @@global.wsrep_reject_queries;
+@@global.wsrep_reject_queries
+ALL
+
+# valid values
+SET @@global.wsrep_reject_queries=NONE;
+SELECT @@global.wsrep_reject_queries;
+@@global.wsrep_reject_queries
+NONE
+SET @@global.wsrep_reject_queries=ALL;
+SELECT @@global.wsrep_reject_queries;
+@@global.wsrep_reject_queries
+ALL
+SET @@global.wsrep_reject_queries=ALL_KILL;
+SELECT @@global.wsrep_reject_queries;
+@@global.wsrep_reject_queries
+ALL_KILL
+SET @@global.wsrep_reject_queries=default;
+SELECT @@global.wsrep_reject_queries;
+@@global.wsrep_reject_queries
+NONE
+
+# invalid values
+SET @@global.wsrep_reject_queries=NULL;
+ERROR 42000: Variable 'wsrep_reject_queries' can't be set to the value of 'NULL'
+SET @@global.wsrep_reject_queries='junk';
+ERROR 42000: Variable 'wsrep_reject_queries' can't be set to the value of 'junk'
+SET @@global.wsrep_reject_queries=ON;
+ERROR 42000: Variable 'wsrep_reject_queries' can't be set to the value of 'ON'
+
+# restore the initial value
+SET @@global.wsrep_reject_queries = @wsrep_reject_queries_global_saved;
+# End of test
