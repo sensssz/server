@@ -11393,10 +11393,8 @@ wsrep_append_foreign_key(
 		WSREP_ERROR(
 			"FK key set failed: %lu (%lu %lu), index: %s %s, %s",
 			rcode, referenced, shared,
-			(index && index->name)       ? index->name :
-				"void index",
-			(index && index->table_name) ? index->table_name :
-				"void table",
+			(index) ? index->name() : "void index",
+			(index) ? index->table->name.m_name : "void table",
 			wsrep_thd_query(thd));
 		return DB_ERROR;
 	}
