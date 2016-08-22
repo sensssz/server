@@ -39,6 +39,10 @@ those functions in lock/ */
 #include "hash0hash.h"
 #include "trx0types.h"
 
+#ifndef UINT32_MAX
+#define UINT32_MAX             (4294967295U)
+#endif
+
 /** A table lock */
 struct lock_table_t {
 	dict_table_t*	table;		/*!< database table in dictionary
