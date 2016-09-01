@@ -8077,7 +8077,7 @@ lock_report_waiters_to_mysql(
 /*=======================*/
 	struct thd_wait_reports*	waitee_buf_ptr,	/*!< in: set of trxs */
 	THD*				mysql_thd,	/*!< in: THD */
-	trx_id_t			victim_trx_id)	/*!< in: Trx selected
+	const trx_t*			victim_trx)	/*!< in: Trx selected
 							as deadlock victim, if
 							any */
 {
@@ -8092,7 +8092,7 @@ lock_report_waiters_to_mysql(
 			trx_t *w_trx = p->waitees[i];
 			/*  There is no need to report waits to a trx already
 			selected as a victim. */
-			if (w_trx->id != victim_trx_id) {
+			if (w_trx != victim_trx) {
 				/* If thd_report_wait_for() decides to kill the
 				transaction, then we will get a call back into
 				innobase_kill_query. We mark this by setting
@@ -8153,10 +8153,10 @@ DeadlockChecker::check_and_resolve(const lock_t* lock, const trx_t* trx)
 		victim_trx = checker.search();
 
 		/* Report waits to upper layer, as needed. */
-		if (victim_trx && waitee_buf_ptr) {
+		if (waitee_buf_ptr) {
 			lock_report_waiters_to_mysql(waitee_buf_ptr,
 						     start_mysql_thd,
-						     victim_trx->id);
+						     victim_trx);
 		}
 
 		/* Search too deep, we rollback the joining transaction only
