@@ -4976,16 +4976,15 @@ innobase_commit(
 		thd_wakeup_subsequent_commits(thd, 0);
 
 		/* Now do a write + flush of logs. */
-		if (!read_only) {
-			trx_commit_complete_for_mysql(trx);
-		}
 
+		trx_commit_complete_for_mysql(trx);
 		trx_deregister_from_2pc(trx);
 
 	} else {
 		/* We just mark the SQL statement ended and do not do a
 		transaction commit */
 
+		DBUG_PRINT("info", ("Just mark SQL statement"));
 		/* If we had reserved the auto-inc lock for some
 		table in this SQL statement we release it now */
 
