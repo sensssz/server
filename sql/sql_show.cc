@@ -2883,6 +2883,12 @@ int fill_schema_processlist(THD* thd, TABLE_LIST* tables, COND* cond)
                     strcmp(tmp_sctx->user, user))))
         continue;
 
+#ifdef WITH_WSREP
+      /* Skip wsrep threads. */
+      if (tmp->wsrep_applier)
+        continue;
+#endif
+
       restore_record(table, s->default_values);
       /* ID */
       table->field[0]->store((longlong) tmp->thread_id, TRUE);
