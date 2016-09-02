@@ -63,13 +63,6 @@ static const ulint	TABLE_LOCK_CACHE = 8;
 /** Size in bytes, of the table lock instance */
 static const ulint	TABLE_LOCK_SIZE = sizeof(ib_lock_t);
 
-/* Buffer to collect THDs to report waits for. */
-struct thd_wait_reports {
-	struct thd_wait_reports *next;	/*!< List link */
-	ulint used;			/*!< How many elements in waitees[] */
-	trx_t *waitees[64];		/*!< Trxs for thd_rpl_deadlock_check() */
-};
-
 /** Deadlock checker. */
 class DeadlockChecker {
 public:
@@ -98,7 +91,7 @@ private:
 		const trx_t*	trx,
 		const lock_t*	wait_lock,
 		ib_uint64_t	mark_start,
-		struct thd_wait_reports* waitee_buf_ptr)
+		bool report_waiters)
 		:
 		m_cost(),
 		m_start(trx),
@@ -106,7 +99,7 @@ private:
 		m_wait_lock(wait_lock),
 		m_mark_start(mark_start),
 		m_n_elems(),
-		m_waitee_ptr(waitee_buf_ptr)
+		m_report_waiters(report_waiters)
 	{
 	}
 
@@ -265,8 +258,8 @@ private:
 	/** This is to avoid malloc/free calls. */
 	static state_t		s_states[MAX_STACK_SIZE];
 
-	/** Buffer to collect THDs to report waits for. */
-	struct thd_wait_reports* m_waitee_ptr;
+	/** Set if thd_rpl_deadlock_check() should be called for waits. */
+	bool m_report_waiters;
 };
 
 /** Counter to mark visited nodes during deadlock search. */
@@ -7952,24 +7945,11 @@ DeadlockChecker::search()
 			layer. These locks are released before commit, so they
 			can not cause deadlocks with binlog-fixed commit
 			order. */
-			if (m_waitee_ptr &&
+			if (m_report_waiters &&
 			    (lock_get_type_low(lock) != LOCK_TABLE ||
 			     lock_get_mode(lock) != LOCK_AUTO_INC)) {
-				if (m_waitee_ptr->used ==
-				    sizeof(m_waitee_ptr->waitees) /
-				    sizeof(m_waitee_ptr->waitees[0])) {
-					m_waitee_ptr->next =
-						(struct thd_wait_reports *)
-						ut_malloc_nokey(sizeof(*m_waitee_ptr));
-					m_waitee_ptr = m_waitee_ptr->next;
-					if (!m_waitee_ptr) {
-						m_too_deep = true;
-						return (m_start);
-					}
-					m_waitee_ptr->next = NULL;
-					m_waitee_ptr->used = 0;
-				}
-				m_waitee_ptr->waitees[m_waitee_ptr->used++] = lock->trx;
+				thd_rpl_deadlock_check(m_start->mysql_thd,
+						       lock->trx->mysql_thd);
 			}
 
 			if (lock->trx->lock.que_state == TRX_QUE_LOCK_WAIT) {
@@ -8049,40 +8029,6 @@ DeadlockChecker::trx_rollback()
 	trx_mutex_exit(trx);
 }
 
-static
-void
-lock_report_waiters_to_mysql(
-/*=======================*/
-	struct thd_wait_reports*	waitee_buf_ptr,	/*!< in: set of trxs */
-	THD*				mysql_thd,	/*!< in: THD */
-	const trx_t*			victim_trx)	/*!< in: Trx selected
-							as deadlock victim, if
-							any */
-{
-	struct thd_wait_reports*	p;
-	struct thd_wait_reports*	q;
-	ulint				i;
-
-	p = waitee_buf_ptr;
-	while (p) {
-		i = 0;
-		while (i < p->used) {
-			trx_t *w_trx = p->waitees[i];
-			/*  There is no need to report waits to a trx already
-			selected as a victim. */
-			if (w_trx != victim_trx) {
-				thd_rpl_deadlock_check(mysql_thd, w_trx->mysql_thd);
-			}
-			++i;
-		}
-		q = p->next;
-		if (p != waitee_buf_ptr) {
-			ut_free(p);
-		}
-		p = q;
-	}
-}
-
 /** Checks if a joining lock request results in a deadlock. If a deadlock is
 found this function will resolve the deadlock by choosing a victim transaction
 and rolling it back. It will attempt to resolve all deadlocks. The returned
@@ -8101,34 +8047,19 @@ DeadlockChecker::check_and_resolve(const lock_t* lock, const trx_t* trx)
 	ut_ad(!srv_read_only_mode);
 
 	const trx_t*	victim_trx;
-	struct thd_wait_reports	waitee_buf;
-	struct thd_wait_reports*waitee_buf_ptr;
-	THD*			start_mysql_thd;
+	THD*		start_mysql_thd;
+	bool		report_waits = false;
 
 	start_mysql_thd = trx->mysql_thd;
-	if (start_mysql_thd && thd_need_wait_for(start_mysql_thd)) {
-		waitee_buf_ptr = &waitee_buf;
-	} else {
-		waitee_buf_ptr = NULL;
-	}
+	if (start_mysql_thd && thd_need_wait_for(start_mysql_thd))
+		report_waits = true;
 
 	/* Try and resolve as many deadlocks as possible. */
 	do {
-		DeadlockChecker	checker(trx, lock, s_lock_mark_counter, waitee_buf_ptr);
-
-		if (waitee_buf_ptr) {
-			waitee_buf_ptr->next = NULL;
-			waitee_buf_ptr->used = 0;
-		}
+		DeadlockChecker	checker(trx, lock, s_lock_mark_counter,
+					report_waits);
 
 		victim_trx = checker.search();
-
-		/* Report waits to upper layer, as needed. */
-		if (waitee_buf_ptr) {
-			lock_report_waiters_to_mysql(waitee_buf_ptr,
-						     start_mysql_thd,
-						     victim_trx);
-		}
 
 		/* Search too deep, we rollback the joining transaction only
 		if it is possible to rollback. Otherwise we rollback the
