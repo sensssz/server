@@ -67,7 +67,7 @@ static const ulint	TABLE_LOCK_SIZE = sizeof(ib_lock_t);
 struct thd_wait_reports {
 	struct thd_wait_reports *next;	/*!< List link */
 	ulint used;			/*!< How many elements in waitees[] */
-	trx_t *waitees[64];		/*!< Trxs for thd_report_wait_for() */
+	trx_t *waitees[64];		/*!< Trxs for thd_rpl_deadlock_check() */
 };
 
 /** Deadlock checker. */
@@ -275,7 +275,7 @@ ib_uint64_t	DeadlockChecker::s_lock_mark_counter = 0;
 /** The stack used for deadlock searches. */
 DeadlockChecker::state_t	DeadlockChecker::s_states[MAX_STACK_SIZE];
 
-extern "C" void thd_report_wait_for(MYSQL_THD thd, MYSQL_THD other_thd);
+extern "C" int thd_rpl_deadlock_check(MYSQL_THD thd, MYSQL_THD other_thd);
 extern "C" int thd_need_wait_for(const MYSQL_THD thd);
 extern "C"
 int thd_need_ordering_with(const MYSQL_THD thd, const MYSQL_THD other_thd);
@@ -2371,14 +2371,6 @@ RecLock::add_to_waitq(const lock_t* wait_for, const lock_prdt_t* prdt)
 #endif /* WITH_WSREP */
 
 	ut_ad(trx_mutex_own(m_trx));
-
-	/* m_trx->mysql_thd is NULL if it's an internal trx. So current_thd is used */
-	if (err == DB_LOCK_WAIT) {
-		ut_ad(wait_for && wait_for->trx);
-		wait_for->trx->abort_type = TRX_REPLICATION_ABORT;
-		thd_report_wait_for(current_thd, wait_for->trx->mysql_thd);
-		wait_for->trx->abort_type = TRX_SERVER_ABORT;
-	}
 	return(err);
 }
 
@@ -2941,21 +2933,7 @@ lock_rec_dequeue_from_page(
 
 			/* Grant the lock */
 			ut_ad(lock->trx != in_lock->trx);
-			bool exit_trx_mutex = false;
-
-			if (in_lock->trx->abort_type == TRX_REPLICATION_ABORT &&
-			    lock->trx->abort_type == TRX_SERVER_ABORT) {
-				ut_ad(trx_mutex_own(lock->trx));
-				trx_mutex_exit(lock->trx);
-				exit_trx_mutex = true;
-			}
-
 			lock_grant(lock);
-
-			if (exit_trx_mutex) {
-				ut_ad(!trx_mutex_own(lock->trx));
-				trx_mutex_enter(lock->trx);
-			}
 		}
 	}
 }
@@ -8093,14 +8071,7 @@ lock_report_waiters_to_mysql(
 			/*  There is no need to report waits to a trx already
 			selected as a victim. */
 			if (w_trx != victim_trx) {
-				/* If thd_report_wait_for() decides to kill the
-				transaction, then we will get a call back into
-				innobase_kill_query. We mark this by setting
-				current_lock_mutex_owner, so we can avoid trying
-				to recursively take lock_sys->mutex. */
-				w_trx->abort_type = TRX_REPLICATION_ABORT;
-				thd_report_wait_for(mysql_thd, w_trx->mysql_thd);
-				w_trx->abort_type = TRX_SERVER_ABORT;
+				thd_rpl_deadlock_check(mysql_thd, w_trx->mysql_thd);
 			}
 			++i;
 		}
