@@ -1861,6 +1861,11 @@ drop table t1;
 --echo #
 --echo # MDEV-7220: Materialization strategy is not used for REPLACE ... SELECT
 --echo #
+let $use_stat_tables_saved= `SELECT @@session.use_stat_tables`;
+--disable_query_log
+SET SESSION use_stat_tables=never;
+--enable_query_log
+
 create table t0(a int);
 insert into t0 values (0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
 
@@ -1900,6 +1905,9 @@ select * from t1 where (a,b) in (select max(a),b from t2 group by b);
 show status where Variable_name like 'Handler_read%' or  Variable_name like 'Handler_%write%';
 
 drop table t0,t1,t2,t3;
+--disable_query_log
+eval SET SESSION use_stat_tables=$use_stat_tables_saved;
+--enable_query_log
 
 --echo #
 --echo # MDEV-7971: Assertion `name != __null' failed in ACL_internal_schema_registry::lookup 

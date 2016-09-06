@@ -2410,6 +2410,10 @@ USE test;
 #
 # Test that using a trigger will not open mysql.proc
 #
+let $use_stat_tables_saved= `SELECT @@session.use_stat_tables`;
+--disable_query_log
+SET SESSION use_stat_tables=never;
+--enable_query_log
 create table t1 (i int);
 create table t2 (i int);
 flush tables;
@@ -2428,6 +2432,9 @@ show status like 'Opened_tables';
 select * from t1;
 select * from t2;
 drop table t1,t2;
+--disable_query_log
+eval SET SESSION use_stat_tables=$use_stat_tables_saved;
+--enable_query_log
 
 --echo End of 5.2 tests.
 

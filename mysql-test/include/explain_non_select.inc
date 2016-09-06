@@ -4,6 +4,7 @@
 -- disable_query_log
 -- disable_result_log
 # SET GLOBAL innodb_stats_persistent=0;
+SET SESSION use_stat_tables=never;
 -- enable_result_log
 -- enable_query_log
 
@@ -829,5 +830,6 @@ DROP TABLE t1, t2;
 -- disable_query_log
 -- disable_result_log
 # SET GLOBAL innodb_stats_persistent=default;
+SET SESSION use_stat_tables=default;
 -- enable_result_log
 -- enable_query_log

@@ -352,7 +352,7 @@ DROP FUNCTION f1;
 #
 # Test of internal temporary table status variables
 #
-
+SET SESSION use_stat_tables = never;
 flush status;
 create table t1 (a int not null auto_increment primary key, g int, b blob);
 insert into t1 (g,b) values (1,'a'), (2, 'b'), (3, 'b'), (1, 'c');
@@ -363,6 +363,7 @@ show status like 'Row%';
 show status like 'Handler%';
 show status like '%tmp%';
 drop table t1;
+SET SESSION use_stat_tables = default;
 
 #
 # Test of handler status counts

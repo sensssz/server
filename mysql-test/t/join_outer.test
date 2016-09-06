@@ -1368,6 +1368,10 @@ drop table t1,t2,t3,t4;
 --echo # Bug#57024: Poor performance when conjunctive condition over the outer 
 --echo #            table is used in the on condition of an outer join
 --echo # 
+let $use_stat_tables_saved= `SELECT @@session.use_stat_tables`;
+--disable_query_log
+SET SESSION use_stat_tables=never;
+--enable_query_log
 
 create table t1 (a int);
 insert into t1 values (NULL), (NULL), (NULL), (NULL);
@@ -1409,6 +1413,10 @@ select sum(t3.b) from t2 left join t3 on t3.a=t2.a and t2.a <> 10;
 show status like "handler_read%";
 
 drop table t1,t2,t3;
+
+--disable_query_log
+eval SET SESSION use_stat_tables=$use_stat_tables_saved;
+--enable_query_log
 
 --echo #
 --echo # Bug#57688 Assertion `!table || (!table->write_set || bitmap_is_set(table->write_set, field

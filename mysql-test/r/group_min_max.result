@@ -40,6 +40,7 @@ create index idx_t1_1 on t1 (a1,a2,b,c);
 create index idx_t1_2 on t1 (a1,a2,b);
 analyze table t1;
 Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	Engine-independent statistics collected
 test.t1	analyze	status	Table is already up to date
 drop table if exists t2;
 create table t2 (
@@ -68,6 +69,7 @@ create index idx_t2_1 on t2 (a1,a2,b,c);
 create index idx_t2_2 on t2 (a1,a2,b);
 analyze table t2;
 Table	Op	Msg_type	Msg_text
+test.t2	analyze	status	Engine-independent statistics collected
 test.t2	analyze	status	Table is already up to date
 drop table if exists t3;
 create table t3 (
@@ -130,6 +132,7 @@ create index idx_t3_1 on t3 (a1,a2,b,c);
 create index idx_t3_2 on t3 (a1,a2,b);
 analyze table t3;
 Table	Op	Msg_type	Msg_text
+test.t3	analyze	status	Engine-independent statistics collected
 test.t3	analyze	status	Table is already up to date
 explain select a1, min(a2) from t1 group by a1;
 id	select_type	table	type	possible_keys	key	key_len	ref	rows	Extra
@@ -2460,7 +2463,7 @@ FLUSH STATUS;
 INSERT INTO t3 SELECT a,MAX(b) FROM t1 GROUP BY a;
 SHOW STATUS LIKE 'handler_read__e%';
 Variable_name	Value
-Handler_read_key	8
+Handler_read_key	13
 Handler_read_next	0
 DELETE FROM t3;
 FLUSH STATUS;
@@ -2711,6 +2714,7 @@ CREATE TABLE t1(a INT NOT NULL, b INT NOT NULL, KEY (b));
 INSERT INTO t1 VALUES(1,1),(2,1);
 ANALYZE TABLE t1;
 Table	Op	Msg_type	Msg_text
+test.t1	analyze	status	Engine-independent statistics collected
 test.t1	analyze	status	OK
 SELECT 1 AS c, b FROM t1 WHERE b IN (1,2) GROUP BY c, b;
 c	b
@@ -3601,6 +3605,7 @@ CREATE TABLE t (a INT, b INT, KEY(a,b));
 INSERT INTO t VALUES (1,1), (2,2), (3,3), (4,4), (1,0), (3,2), (4,5);
 ANALYZE TABLE t;
 Table	Op	Msg_type	Msg_text
+test.t	analyze	status	Engine-independent statistics collected
 test.t	analyze	status	OK
 SELECT a, SUM(DISTINCT a), MIN(b) FROM t GROUP BY a;
 a	SUM(DISTINCT a)	MIN(b)

@@ -218,6 +218,11 @@ set by user, however, it will be adjusted to the newer file format if
 a table of such format is created/opened. */
 static char*	innobase_file_format_max		= NULL;
 
+/** Default value of innodb_file_format */
+static const char*	innodb_file_format_default	= "Barracuda";
+/** Default value of innodb_file_format_max */
+static const char*	innodb_file_format_max_default	= "Antelope";
+
 static char*	innobase_file_flush_method		= NULL;
 
 /* This variable can be set in the server configure file, specifying
@@ -831,7 +836,7 @@ static MYSQL_THDVAR_BOOL(table_locks, PLUGIN_VAR_OPCMDARG,
 
 static MYSQL_THDVAR_BOOL(strict_mode, PLUGIN_VAR_OPCMDARG,
   "Use strict mode when evaluating create options.",
-  NULL, NULL, FALSE);
+  NULL, NULL, TRUE);
 
 static MYSQL_THDVAR_BOOL(ft_enable_stopword, PLUGIN_VAR_OPCMDARG,
   "Create FTS index with stopword.",
@@ -18640,7 +18645,7 @@ static MYSQL_SYSVAR_ENUM(checksum_algorithm, srv_checksum_algorithm,
     "magic number when reading; "
   "Files updated when this option is set to crc32 or strict_crc32 will "
   "not be readable by MySQL versions older than 5.6.3",
-  NULL, NULL, SRV_CHECKSUM_ALGORITHM_INNODB,
+  NULL, NULL, SRV_CHECKSUM_ALGORITHM_CRC32,
   &innodb_checksum_algorithm_typelib);
 
 static MYSQL_SYSVAR_BOOL(checksums, innobase_use_checksums,
@@ -18729,7 +18734,7 @@ static MYSQL_SYSVAR_ULONG(purge_threads, srv_n_purge_threads,
   PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
   "Purge threads can be from 1 to 32. Default is 1.",
   NULL, NULL,
-  1,			/* Default setting */
+  4,			/* Default setting */
   1,			/* Minimum value */
   32, 0);		/* Maximum value */
 
@@ -18756,7 +18761,7 @@ static MYSQL_SYSVAR_STR(file_format, innobase_file_format_name,
   PLUGIN_VAR_RQCMDARG,
   "File format to use for new tables in .ibd files.",
   innodb_file_format_name_validate,
-  innodb_file_format_name_update, "Antelope");
+  innodb_file_format_name_update, innodb_file_format_default);
 
 /* "innobase_file_format_check" decides whether we would continue
 booting the server if the file format stamped on the system
@@ -18777,7 +18782,7 @@ static MYSQL_SYSVAR_STR(file_format_max, innobase_file_format_max,
   PLUGIN_VAR_OPCMDARG,
   "The highest file format in the tablespace.",
   innodb_file_format_max_validate,
-  innodb_file_format_max_update, "Antelope");
+  innodb_file_format_max_update, innodb_file_format_max_default);
 
 static MYSQL_SYSVAR_STR(ft_server_stopword_table, innobase_server_stopword_table,
   PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -18812,7 +18817,7 @@ static MYSQL_SYSVAR_STR(flush_method, innobase_file_flush_method,
 static MYSQL_SYSVAR_BOOL(large_prefix, innobase_large_prefix,
   PLUGIN_VAR_NOCMDARG,
   "Support large index prefix length of REC_VERSION_56_MAX_INDEX_COL_LEN (3072) bytes.",
-  NULL, NULL, FALSE);
+  NULL, NULL, TRUE);
 
 static MYSQL_SYSVAR_BOOL(force_load_corrupted, srv_load_corrupted,
   PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
@@ -18937,8 +18942,9 @@ static MYSQL_SYSVAR_ULONGLONG(stats_modified_counter, srv_stats_modified_counter
 
 static MYSQL_SYSVAR_BOOL(stats_traditional, srv_stats_sample_traditional,
   PLUGIN_VAR_RQCMDARG,
-  "Enable traditional statistic calculation based on number of configured pages (default true)",
-  NULL, NULL, TRUE);
+  "Enable traditional statistic calculation based on number of configured "
+  "pages (default false)",
+  NULL, NULL, FALSE);
 
 static MYSQL_SYSVAR_BOOL(adaptive_hash_index, btr_search_enabled,
   PLUGIN_VAR_OPCMDARG,
@@ -18965,7 +18971,7 @@ static MYSQL_SYSVAR_BOOL(log_compressed_pages, page_zip_log_pages,
   " the zlib compression algorithm changes."
   " When turned OFF, InnoDB will assume that the zlib"
   " compression algorithm doesn't change.",
-  NULL, NULL, FALSE);
+  NULL, NULL, TRUE);
 
 static MYSQL_SYSVAR_LONG(additional_mem_pool_size, innobase_additional_mem_pool_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
@@ -19015,12 +19021,12 @@ static MYSQL_SYSVAR_BOOL(buffer_pool_dump_now, innodb_buffer_pool_dump_now,
 static MYSQL_SYSVAR_BOOL(buffer_pool_dump_at_shutdown, srv_buffer_pool_dump_at_shutdown,
   PLUGIN_VAR_RQCMDARG,
   "Dump the buffer pool into a file named @@innodb_buffer_pool_filename",
-  NULL, NULL, FALSE);
+  NULL, NULL, TRUE);
 
 static MYSQL_SYSVAR_ULONG(buffer_pool_dump_pct, srv_buf_pool_dump_pct,
   PLUGIN_VAR_RQCMDARG,
-  "Dump only the hottest N% of each buffer pool, defaults to 100",
-  NULL, NULL, 100, 1, 100, 0);
+  "Dump only the hottest N% of each buffer pool, defaults to 25",
+  NULL, NULL, 25, 1, 100, 0);
 
 #ifdef UNIV_DEBUG
 static MYSQL_SYSVAR_STR(buffer_pool_evict, srv_buffer_pool_evict,
@@ -19043,7 +19049,7 @@ static MYSQL_SYSVAR_BOOL(buffer_pool_load_abort, innodb_buffer_pool_load_abort,
 static MYSQL_SYSVAR_BOOL(buffer_pool_load_at_startup, srv_buffer_pool_load_at_startup,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "Load the buffer pool from a file named @@innodb_buffer_pool_filename",
-  NULL, NULL, FALSE);
+  NULL, NULL, TRUE);
 
 static MYSQL_SYSVAR_BOOL(defragment, srv_defragment,
   PLUGIN_VAR_RQCMDARG,
@@ -19230,7 +19236,7 @@ static MYSQL_SYSVAR_LONG(log_buffer_size, innobase_log_buffer_size,
 static MYSQL_SYSVAR_LONGLONG(log_file_size, innobase_log_file_size,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "Size of each log file in a log group.",
-  NULL, NULL, 48*1024*1024L, 1*1024*1024L, LONGLONG_MAX, 1024*1024L);
+  NULL, NULL, 128*1024*1024L, 1*1024*1024L, LONGLONG_MAX, 1024*1024L);
 
 static MYSQL_SYSVAR_ULONG(log_files_in_group, srv_n_log_files,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,

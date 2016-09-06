@@ -513,7 +513,7 @@ static Sys_var_enum Sys_binlog_format(
        "UDFs) or the UUID() function; for those, row-based binary logging is "
        "automatically used.",
        SESSION_VAR(binlog_format), CMD_LINE(REQUIRED_ARG, OPT_BINLOG_FORMAT),
-       binlog_format_names, DEFAULT(BINLOG_FORMAT_STMT),
+       binlog_format_names, DEFAULT(BINLOG_FORMAT_MIXED),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(binlog_format_check),
        ON_UPDATE(fix_binlog_format_after_update));
 
@@ -1224,7 +1224,7 @@ static Sys_var_double Sys_long_query_time(
        "to execute to file. The argument will be treated as a decimal value "
        "with microsecond precision",
        SESSION_VAR(long_query_time_double),
-       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(10),
+       CMD_LINE(REQUIRED_ARG), VALID_RANGE(0, LONG_TIMEOUT), DEFAULT(2),
        NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
        ON_UPDATE(update_cached_long_query_time));
 
@@ -1324,7 +1324,7 @@ static Sys_var_ulong Sys_max_allowed_packet(
        "max_allowed_packet",
        "Max packet length to send to or receive from the server",
        SESSION_VAR(max_allowed_packet), CMD_LINE(REQUIRED_ARG),
-       VALID_RANGE(1024, 1024*1024*1024), DEFAULT(4*1024*1024),
+       VALID_RANGE(1024, 1024*1024*1024), DEFAULT(16*1024*1024),
        BLOCK_SIZE(1024), NO_MUTEX_GUARD, NOT_IN_BINLOG,
        ON_CHECK(check_max_allowed_packet));
 
@@ -3933,7 +3933,7 @@ static Sys_var_ulonglong Sys_group_concat_max_len(
        "group_concat_max_len",
        "The maximum length of the result of function  GROUP_CONCAT()",
        SESSION_VAR(group_concat_max_len), CMD_LINE(REQUIRED_ARG),
-       VALID_RANGE(4, SIZE_T_MAX), DEFAULT(1024), BLOCK_SIZE(1));
+       VALID_RANGE(4, SIZE_T_MAX), DEFAULT(1024*1024), BLOCK_SIZE(1));
 
 static char *glob_hostname_ptr;
 static Sys_var_charptr Sys_hostname(
@@ -4595,7 +4595,7 @@ static Sys_var_uint Sys_sync_binlog_period(
        "sync_binlog", "Synchronously flush binary log to disk after "
        "every #th event. Use 0 (default) to disable synchronous flushing",
        GLOBAL_VAR(sync_binlog_period), CMD_LINE(REQUIRED_ARG),
-       VALID_RANGE(0, UINT_MAX), DEFAULT(0), BLOCK_SIZE(1));
+       VALID_RANGE(0, UINT_MAX), DEFAULT(1), BLOCK_SIZE(1));
 
 static Sys_var_uint Sys_sync_masterinfo_period(
        "sync_master_info", "Synchronously flush master info to disk "
@@ -5184,7 +5184,7 @@ static Sys_var_mybool Sys_binlog_annotate_row_events(
        "Tells the master to annotate RBR events with the statement that "
        "caused these events",
        SESSION_VAR(binlog_annotate_row_events), CMD_LINE(OPT_ARG),
-       DEFAULT(FALSE));
+       DEFAULT(TRUE));
 
 #ifdef HAVE_REPLICATION
 static Sys_var_mybool Sys_replicate_annotate_row_events(
@@ -5192,7 +5192,7 @@ static Sys_var_mybool Sys_replicate_annotate_row_events(
        "Tells the slave to write annotate rows events received from the master "
        "to its own binary log. Ignored if log_slave_updates is not set",
        READ_ONLY GLOBAL_VAR(opt_replicate_annotate_row_events),
-       CMD_LINE(OPT_ARG), DEFAULT(0));
+       CMD_LINE(OPT_ARG), DEFAULT(TRUE));
 #endif
 
 static Sys_var_ulonglong Sys_join_buffer_space_limit(
@@ -5215,14 +5215,14 @@ static Sys_var_enum Sys_optimizer_use_stat_tables(
        "use_stat_tables",
        "Specifies how to use system statistics tables",
        SESSION_VAR(use_stat_tables), CMD_LINE(REQUIRED_ARG),
-       use_stat_tables_modes, DEFAULT(0));
+       use_stat_tables_modes, DEFAULT(1));
 
 static Sys_var_ulong Sys_histogram_size(
        "histogram_size",
        "Number of bytes used for a histogram. "
        "If set to 0, no histograms are created by ANALYZE.",
        SESSION_VAR(histogram_size), CMD_LINE(REQUIRED_ARG),
-       VALID_RANGE(0, 255), DEFAULT(0), BLOCK_SIZE(1));
+       VALID_RANGE(0, 255), DEFAULT(255), BLOCK_SIZE(1));
 
 extern const char *histogram_types[];
 static Sys_var_enum Sys_histogram_type(

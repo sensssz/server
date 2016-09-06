@@ -1,7 +1,7 @@
 SET @orig = @@global.innodb_buffer_pool_dump_pct;
 SELECT @orig;
 @orig
-100
+25
 SET GLOBAL innodb_buffer_pool_dump_pct=3, GLOBAL innodb_buffer_pool_dump_now = ON;
 SET GLOBAL innodb_buffer_pool_dump_pct=0;
 SELECT @@global.innodb_buffer_pool_dump_pct;
