@@ -46,12 +46,6 @@ typedef CRITICAL_SECTION	sys_mutex_t;
 typedef pthread_mutex_t		sys_mutex_t;
 #endif /* _WIN32 */
 
-/** The new (C++11) syntax allows the following and we should use it when it
-is available on platforms that we support.
-
-	enum class mutex_state_t : lock_word_t { ... };
-*/
-
 /** Mutex states. */
 enum mutex_state_t {
 	/** Mutex is free */
