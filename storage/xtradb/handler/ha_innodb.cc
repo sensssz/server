@@ -4570,6 +4570,9 @@ innobase_commit_low(
 #ifdef WITH_WSREP
 	THD* thd = (THD*)trx->mysql_thd;
 	const char* tmp = 0;
+	WSREP_DEBUGX(3, "innobase_commit_low(): thd: %lu",
+		wsrep_thd_thread_id(trx->mysql_thd));
+
 	if (wsrep_on(thd)) {
 #ifdef WSREP_PROC_INFO
 		char info[64];
@@ -4693,6 +4696,10 @@ innobase_commit_ordered_2(
 	THD*	thd)	/*!< in: MySQL thread handle */
 {
 	DBUG_ENTER("innobase_commit_ordered_2");
+	WSREP_DEBUGX(3, "innobase_commit_ordered_2(): thd: %lu, "
+		"concurrency: %lu",
+		wsrep_thd_thread_id(trx->mysql_thd),
+		innobase_commit_concurrency);
 
 	/* We need current binlog position for mysqlbackup to work. */
 retry:
@@ -4819,6 +4826,8 @@ innobase_commit(
 	DBUG_PRINT("trans", ("ending transaction"));
 
 	trx = check_trx_exists(thd);
+	WSREP_DEBUGX(3, "innobase_commit(): thd: %lu, commit: %d",
+		wsrep_thd_thread_id(trx->mysql_thd), commit_trx);
 
 	/* Since we will reserve the trx_sys->mutex, we have to release
 	the search system latch first to obey the latching order. */
@@ -4929,6 +4938,8 @@ innobase_rollback(
 	DBUG_PRINT("trans", ("aborting transaction"));
 
 	trx = check_trx_exists(thd);
+	WSREP_DEBUGX(3, "innobase_rollback(): thd: %lu",
+		wsrep_thd_thread_id(trx->mysql_thd));
 
 	/* Release a possible FIFO ticket and search latch. Since we will
 	reserve the trx_sys->mutex, we have to release the search system

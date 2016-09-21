@@ -74,7 +74,7 @@ struct wsrep_buf;
 extern struct wsrep_service_st {
   struct wsrep *              (*get_wsrep_func)();
   my_bool                     (*get_wsrep_certify_nonPK_func)();
-  my_bool                     (*get_wsrep_debug_func)();
+  int                         (*get_wsrep_debug_func)();
   my_bool                     (*get_wsrep_drupal_282555_workaround_func)();
   my_bool                     (*get_wsrep_recovery_func)();
   my_bool                     (*get_wsrep_load_data_splitting_func)();
@@ -110,6 +110,7 @@ extern struct wsrep_service_st {
   int                         (*wsrep_trx_is_aborting_func)(MYSQL_THD thd);
   int                         (*wsrep_trx_order_before_func)(MYSQL_THD, MYSQL_THD);
   void                        (*wsrep_unlock_rollback_func)();
+  ulong                       (*wsrep_thd_thread_id_func)(THD *thd);
 } *wsrep_service;
 
 #ifdef MYSQL_DYNAMIC_PLUGIN
@@ -151,6 +152,7 @@ extern struct wsrep_service_st {
 #define wsrep_trx_is_aborting(T) wsrep_service->wsrep_trx_is_aborting_func(T)
 #define wsrep_trx_order_before(T1,T2) wsrep_service->wsrep_trx_order_before_func(T1,T2)
 #define wsrep_unlock_rollback() wsrep_service->wsrep_unlock_rollback_func()
+#define wsrep_thd_thread_id(T) wsrep_service->wsrep_thd_thread_id_func(T)
 
 #define wsrep_debug get_wsrep_debug()
 #define wsrep_log_conflicts get_wsrep_log_conflicts()
@@ -162,7 +164,7 @@ extern struct wsrep_service_st {
 
 #else
 
-extern my_bool wsrep_debug;
+extern int     wsrep_debug;
 extern my_bool wsrep_log_conflicts;
 extern my_bool wsrep_certify_nonPK;
 extern my_bool wsrep_load_data_splitting;
@@ -189,7 +191,7 @@ int wsrep_trx_order_before(MYSQL_THD thd1, MYSQL_THD thd2);
 long get_wsrep_protocol_version();
 long long wsrep_thd_trx_seqno(THD *thd);
 my_bool get_wsrep_certify_nonPK();
-my_bool get_wsrep_debug();
+int get_wsrep_debug();
 my_bool get_wsrep_drupal_282555_workaround();
 my_bool get_wsrep_recovery();
 my_bool get_wsrep_load_data_splitting();
@@ -208,6 +210,7 @@ void wsrep_thd_awake(THD *thd, my_bool signal);
 void wsrep_thd_set_conflict_state(THD *thd, enum wsrep_conflict_state state);
 bool wsrep_thd_ignore_table(THD *thd);
 void wsrep_unlock_rollback();
+ulong wsrep_thd_thread_id(THD *thd);
 
 #endif
 

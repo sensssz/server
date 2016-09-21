@@ -1186,6 +1186,12 @@ trx_commit_in_memory(
 			if the transaction did not modify anything */
 {
 	trx->must_flush_log_later = FALSE;
+#ifdef WITH_WSREP
+	if (wsrep_debug > 2)
+		fprintf(stderr, "WSREP: trx_commit_in_memory(): thd: %lu, "
+			"lsn: %lu\n",
+			wsrep_thd_thread_id(trx->mysql_thd), lsn);
+#endif /* WITH_WSREP */
 
 	if (trx_is_autocommit_non_locking(trx)) {
 		ut_ad(trx->read_only);
@@ -1371,6 +1377,11 @@ trx_commit_low(
 			or NULL if trx made no modifications */
 {
 	lsn_t	lsn;
+#ifdef WITH_WSREP
+	if (wsrep_debug > 2)
+		fprintf(stderr, "WSREP: trx_commit_low(): thd: %lu \n",
+			wsrep_thd_thread_id(trx->mysql_thd));
+#endif /* WITH_WSREP */
 
 	assert_trx_nonlocking_or_in_list(trx);
 	ut_ad(!trx_state_eq(trx, TRX_STATE_COMMITTED_IN_MEMORY));
@@ -1647,6 +1658,11 @@ trx_commit_for_mysql(
 	started. */
 
 	ut_a(trx);
+#ifdef WITH_WSREP
+	if (wsrep_debug > 2)
+		fprintf(stderr, "WSREP: trx_commit_for_mysql(): thd: %lu\n",
+			wsrep_thd_thread_id(trx->mysql_thd));
+#endif /* WITH_WSREP */
 
 	switch (trx->state) {
 	case TRX_STATE_NOT_STARTED:
@@ -1663,6 +1679,13 @@ trx_commit_for_mysql(
 
 		ut_d(trx->start_file = __FILE__);
 		ut_d(trx->start_line = __LINE__);
+
+#ifdef WITH_WSREP
+		if (wsrep_debug > 1)
+			fprintf(stderr, "WSREP: trx_commit_for_mysql() "
+				"started trx, thd: %lu\n",
+				wsrep_thd_thread_id(trx->mysql_thd));
+#endif /* WITH_WSREP */
 
 		trx_start_low(trx);
 		/* fall through */

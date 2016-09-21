@@ -38,7 +38,7 @@ struct wsrep *get_wsrep()
 my_bool get_wsrep_certify_nonPK()
 { return 0; }
 
-my_bool get_wsrep_debug()
+int get_wsrep_debug()
 { return 0; }
 
 my_bool get_wsrep_drupal_282555_workaround()
@@ -130,3 +130,6 @@ int wsrep_trx_is_aborting(THD *)
 
 void wsrep_unlock_rollback()
 { }
+
+ulong wsrep_thd_thread_id(THD *)
+{ return 0; }

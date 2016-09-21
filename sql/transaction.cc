@@ -224,6 +224,10 @@ bool trans_commit(THD *thd)
 {
   int res;
   DBUG_ENTER("trans_commit");
+  WSREP_DEBUGX(3, "trans_commit(): thd: %lu, applier: %d, exec: %d, conf: %d, "
+               "kill: %d",
+               thd->thread_id, thd->wsrep_applier, thd->wsrep_exec_mode,
+               thd->wsrep_conflict_state, thd->killed);
 
   if (trans_check(thd))
     DBUG_RETURN(TRUE);

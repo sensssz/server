@@ -44,11 +44,14 @@
 #define WSREP_INFO(...)  WSREP_LOG(sql_print_information, ##__VA_ARGS__)
 #define WSREP_WARN(...)  WSREP_LOG(sql_print_warning,     ##__VA_ARGS__)
 #define WSREP_ERROR(...) WSREP_LOG(sql_print_error,       ##__VA_ARGS__)
+#define WSREP_DEBUGX(level, ...)                                         \
+  if (wsrep_debug >= level) WSREP_LOG(sql_print_information, ##__VA_ARGS__)
 
 #else
 #define IF_WSREP(A,B) B
 #define DBUG_ASSERT_IF_WSREP(A)
 #define WSREP_DEBUG(...)
+#define WSREP_DEBUGX(...)
 #define WSREP_INFO(...)
 #define WSREP_WARN(...)
 #define WSREP_ERROR(...)

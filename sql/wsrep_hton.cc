@@ -133,7 +133,6 @@ void wsrep_post_commit(THD* thd, bool all)
      /*
        Non-InnoDB statements may have populated events in stmt cache => cleanup
      */
-     WSREP_DEBUG("cleanup transaction for LOCAL_STATE: %s", thd->query());
      wsrep_cleanup_transaction(thd);
      break;
    }

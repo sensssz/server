@@ -1148,6 +1148,10 @@ static int prepare_or_error(handlerton *ht, THD *thd, bool all)
   status_var_increment(thd->status_var.ha_prepare_count);
   if (err)
   {
+    WSREP_DEBUGX(2, "ha_commit_trans(): prepare failed, thd: %lu, applier: %d, "
+                 "exec: %d, conf: %d, kill: %d, err: %d, hton: %d",
+                 thd->thread_id, thd->wsrep_applier, thd->wsrep_exec_mode,
+                 thd->wsrep_conflict_state, thd->killed, err, ht->db_type);
     /* avoid sending error, if we're going to replay the transaction */
 #ifdef WITH_WSREP
     if (ht != wsrep_hton ||
@@ -1349,6 +1353,11 @@ int ha_commit_trans(THD *thd, bool all)
     */
     if (is_real_trans)
       thd->transaction.cleanup();
+
+    WSREP_DEBUGX(2, "ha_commit_trans(): no ha_info, thd: %lu, applier: %d, "
+                 "exec: %d, conf: %d, kill: %d",
+                 thd->thread_id, thd->wsrep_applier, thd->wsrep_exec_mode,
+                 thd->wsrep_conflict_state, thd->killed);
     DBUG_RETURN(0);
   }
 
@@ -1366,6 +1375,10 @@ int ha_commit_trans(THD *thd, bool all)
   DBUG_PRINT("info", ("is_real_trans: %d  rw_trans:  %d  rw_ha_count: %d",
                       is_real_trans, rw_trans, rw_ha_count));
 
+  WSREP_DEBUGX(3, "ha_commit_trans(): rw_trans: %d, ha_count: %d, thd: %lu, "
+               "applier: %d, exec: %d, conf: %d, kill: %d",
+               rw_trans, rw_ha_count, thd->thread_id, thd->wsrep_applier,
+               thd->wsrep_exec_mode, thd->wsrep_conflict_state, thd->killed);
   if (rw_trans)
   {
     /*
@@ -1388,6 +1401,10 @@ int ha_commit_trans(THD *thd, bool all)
     }
 
     DEBUG_SYNC(thd, "ha_commit_trans_after_acquire_commit_lock");
+  }
+  else
+  {
+    WSREP_DEBUGX(2, "ha_commit_trans(): non rw_trans");
   }
 
   if (rw_trans &&
@@ -1454,6 +1471,10 @@ int ha_commit_trans(THD *thd, bool all)
   DBUG_EXECUTE_IF("crash_commit_after_log", DBUG_SUICIDE(););
 
   error= commit_one_phase_2(thd, all, trans, is_real_trans) ? 2 : 0;
+  WSREP_DEBUGX(3, "ha_commit_trans(): commit_one_phase_2 returns %d, "
+               "thd: %lu, applier: %d, exec: %d, conf: %d, kill: %d",
+               error, thd->thread_id, thd->wsrep_applier, thd->wsrep_exec_mode,
+               thd->wsrep_conflict_state, thd->killed);
 
   DBUG_EXECUTE_IF("crash_commit_before_unlog", DBUG_SUICIDE(););
   if (tc_log->unlog(cookie, xid))
@@ -1474,6 +1495,10 @@ done:
 
   /* Come here if error and we need to rollback. */
 err:
+  WSREP_DEBUGX(2, "ha_commit_trans(), returns with error, thd: %lu, "
+               "applier: %d, exec: %d, conf: %d, kill: %d",
+               thd->thread_id, thd->wsrep_applier, thd->wsrep_exec_mode,
+               thd->wsrep_conflict_state, thd->killed);
   error= 1;                                  /* Transaction was rolled back */
   /*
     In parallel replication, rollback is delayed, as there is extra replication
@@ -1557,6 +1582,10 @@ commit_one_phase_2(THD *thd, bool all, THD_TRANS *trans, bool is_real_trans)
       {
         my_error(ER_ERROR_DURING_COMMIT, MYF(0), err);
         error=1;
+        WSREP_DEBUGX(2, "commit_one_phase_2(): commit failed, thd: %lu, "
+                     "applier: %d, exec: %d, conf: %d, kill: %d",
+                     thd->thread_id, thd->wsrep_applier, thd->wsrep_exec_mode,
+                     thd->wsrep_conflict_state, thd->killed);
       }
       /* Should this be done only if is_real_trans is set ? */
       status_var_increment(thd->status_var.ha_commit_count);

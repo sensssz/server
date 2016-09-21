@@ -64,7 +64,7 @@ const char* wsrep_dbug_option   = "";
 
 long    wsrep_slave_threads            = 1; // # of slave action appliers wanted
 int     wsrep_slave_count_change       = 0; // # of appliers to stop or start
-my_bool wsrep_debug                    = 0; // enable debug level logging
+int wsrep_debug                        = 0; // enable debug level logging
 my_bool wsrep_convert_LOCK_to_trx      = 1; // convert locking sessions to trx
 ulong   wsrep_retry_autocommit         = 5; // retry aborted autocommit trx
 my_bool wsrep_auto_increment_control   = 1; // control auto increment variables
@@ -2328,6 +2328,11 @@ extern "C" uint32 wsrep_thd_wsrep_rand(THD *thd)
   return thd->wsrep_rand;
 }
 
+extern "C" ulong wsrep_thd_thread_id(THD *thd)
+{
+  return (ulong) (thd) ? thd->thread_id : 0;
+}
+
 longlong wsrep_thd_trx_seqno(THD *thd)
 {
   return (thd) ? thd->wsrep_trx_meta.gtid.seqno : WSREP_SEQNO_UNDEFINED;
@@ -2555,7 +2560,7 @@ static int wsrep_create_trigger_query(THD *thd, uchar** buf, size_t* buf_len)
 
 /***** callbacks for wsrep service ************/
 
-my_bool get_wsrep_debug()
+int get_wsrep_debug()
 {
   return wsrep_debug;
 }

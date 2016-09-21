@@ -119,6 +119,7 @@ static wsrep_cb_status_t wsrep_apply_events(THD*        thd,
     }
 
     typ= ev->get_type_code();
+    WSREP_DEBUGX(3, "wsrep_apply_events(): event type: %d", typ);
 
     switch (typ) {
     case FORMAT_DESCRIPTION_EVENT:
@@ -270,6 +271,7 @@ wsrep_cb_status_t wsrep_apply_cb(void* const             ctx,
   {
     wsrep_dump_rbr_buf_with_header(thd, buf, buf_len);
   }
+  WSREP_DEBUGX(3, "wsrep_apply_cb(): rcode: %d, WS buf: %lu", rcode, buf_len);
 
   TABLE *tmp;
   while ((tmp = thd->temporary_tables))
@@ -296,7 +298,7 @@ static wsrep_cb_status_t wsrep_commit(THD* const thd)
 
   wsrep_cb_status_t const rcode(trans_commit(thd) ?
                                 WSREP_CB_FAILURE : WSREP_CB_SUCCESS);
-
+  WSREP_DEBUGX(3, "wsrep_commit(): trans_commit returned with %d", rcode);
   if (WSREP_CB_SUCCESS == rcode)
   {
     thd->wsrep_rgi->cleanup_context(thd, false);
