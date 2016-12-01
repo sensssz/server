@@ -2288,6 +2288,7 @@ has_higher_priority(
         return false;
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 	// Ask the upper server layer if any of the two trx should be prefered.
 	int preference = thd_deadlock_victim_preference(lock1->trx->mysql_thd, lock2->trx->mysql_thd);
@@ -2299,6 +2300,8 @@ has_higher_priority(
 		return true;
 	}
 >>>>>>> Bug fix: consider wait locks before victim preference.
+=======
+>>>>>>> Remove vimctom preference since vats is disabled in replications.
 	return lock1->trx->start_time_micro <= lock2->trx->start_time_micro;
 }
 
