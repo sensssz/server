@@ -2280,31 +2280,13 @@ has_higher_priority(
 		return false;
 	} else if (lock2 == NULL) {
 		return true;
-    }
-    // No preference. Compre them by wait mode and trx age.
-    if (!lock_get_wait(lock1)) {
-        return true;
-    } else if (!lock_get_wait(lock2)) {
-        return false;
-    }
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-	// Ask the upper server layer if any of the two trx should be prefered.
-	int preference = thd_deadlock_victim_preference(lock1->trx->mysql_thd, lock2->trx->mysql_thd);
-	if (preference == -1) {
-		// lock1 is preferred as a victim, so lock2 has higher priority
-		return false;
-	} else if (preference == 1) {
-		// lock2 is preferred as a victim, so lock1 has higher priority
-		return true;
 	}
->>>>>>> Bug fix: consider wait locks before victim preference.
-=======
->>>>>>> Remove vimctom preference since vats is disabled in replications.
-=======
->>>>>>> c3071d514aba3467dcfc89b20d7783a8d6a99477
+	// Compre them by wait mode and trx age.
+	if (!lock_get_wait(lock1)) {
+		return true;
+	} else if (!lock_get_wait(lock2)) {
+		return false;
+	}
 	return lock1->trx->start_time_micro <= lock2->trx->start_time_micro;
 }
 
