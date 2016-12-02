@@ -2287,6 +2287,18 @@ has_higher_priority(
     } else if (!lock_get_wait(lock2)) {
         return false;
     }
+<<<<<<< HEAD
+=======
+	// Ask the upper server layer if any of the two trx should be prefered.
+	int preference = thd_deadlock_victim_preference(lock1->trx->mysql_thd, lock2->trx->mysql_thd);
+	if (preference == -1) {
+		// lock1 is preferred as a victim, so lock2 has higher priority
+		return false;
+	} else if (preference == 1) {
+		// lock2 is preferred as a victim, so lock1 has higher priority
+		return true;
+	}
+>>>>>>> Bug fix: consider wait locks before victim preference.
 	return lock1->trx->start_time_micro <= lock2->trx->start_time_micro;
 }
 
