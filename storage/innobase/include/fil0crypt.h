@@ -1,6 +1,6 @@
 /*****************************************************************************
 Copyright (C) 2013, 2015, Google Inc. All Rights Reserved.
-Copyright (c) 2015, 2016, MariaDB Corporation.
+Copyright (c) 2015, 2017, MariaDB Corporation.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -26,6 +26,8 @@ Created 04/01/2015 Jan Lindström
 #ifndef fil0crypt_h
 #define fil0crypt_h
 
+#include "os0sync.h"
+
 /**
 * Magic pattern in start of crypt data on page 0
 */
@@ -33,9 +35,6 @@ Created 04/01/2015 Jan Lindström
 
 static const unsigned char CRYPT_MAGIC[MAGIC_SZ] = {
 	's', 0xE, 0xC, 'R', 'E', 't' };
-
-static const unsigned char EMPTY_PATTERN[MAGIC_SZ] = {
-	0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
 
 /* This key will be used if nothing else is given */
 #define FIL_DEFAULT_ENCRYPTION_KEY ENCRYPTION_KEY_SYSTEM_DATA
@@ -47,6 +46,8 @@ typedef enum {
 	FIL_SPACE_ENCRYPTION_ON = 1,		/* Tablespace is encrypted always */
 	FIL_SPACE_ENCRYPTION_OFF = 2		/* Tablespace is not encrypted */
 } fil_encryption_t;
+
+extern os_event_t fil_crypt_threads_event;
 
 /**
  * CRYPT_SCHEME_UNENCRYPTED
@@ -75,6 +76,21 @@ struct key_struct
                                                 (that is L in CRYPT_SCHEME_1) */
 };
 
+/** is encryption enabled */
+extern ulong	srv_encrypt_tables;
+
+#ifdef UNIV_PFS_MUTEX
+extern mysql_pfs_key_t fil_crypt_data_mutex_key;
+#endif
+
+/** Mutex helper for crypt_data->scheme
+@param[in, out]	schme	encryption scheme
+@param[in]	exit	should we exit or enter mutex ? */
+void
+crypt_data_scheme_locker(
+	st_encryption_scheme*	scheme,
+	int			exit);
+
 struct fil_space_rotate_state_t
 {
 	time_t start_time;	/*!< time when rotation started */
@@ -96,13 +112,110 @@ struct fil_space_rotate_state_t
 
 struct fil_space_crypt_struct : st_encryption_scheme
 {
+ public:
+	/** Constructor. Does not initialize the members!
+	The object is expected to be placed in a buffer that
+	has been zero-initialized. */
+	fil_space_crypt_struct(
+		ulint new_type,
+		uint new_min_key_version,
+		uint new_key_id,
+		ulint offset,
+		fil_encryption_t new_encryption)
+		: st_encryption_scheme(),
+		min_key_version(new_min_key_version),
+		page0_offset(offset),
+		encryption(new_encryption),
+		closing(false),
+		key_found(),
+		rotate_state()
+	{
+		key_found = new_min_key_version;
+		key_id = new_key_id;
+		my_random_bytes(iv, sizeof(iv));
+		mutex_create(fil_crypt_data_mutex_key,
+			&mutex, SYNC_NO_ORDER_CHECK);
+		locker = crypt_data_scheme_locker;
+		type = new_type;
+
+		if (new_encryption == FIL_SPACE_ENCRYPTION_OFF ||
+			(!srv_encrypt_tables &&
+			 new_encryption == FIL_SPACE_ENCRYPTION_DEFAULT)) {
+			type = CRYPT_SCHEME_UNENCRYPTED;
+		} else {
+			type = CRYPT_SCHEME_1;
+			min_key_version = key_get_latest_version();
+		}
+	}
+
+	/** Destructor */
+	~fil_space_crypt_struct()
+	{
+		closing = true;
+		mutex_free(&mutex);
+	}
+
+	/** Get latest key version from encryption plugin
+	@retval key_version or
+	@retval ENCRYPTION_KEY_VERSION_INVALID if used key_id
+	is not found from encryption plugin. */
+	uint key_get_latest_version(void);
+
+	/** Returns true if key was found from encryption plugin
+	and false if not. */
+	bool is_key_found() const {
+		return key_found != ENCRYPTION_KEY_VERSION_INVALID;
+	}
+
+	/** Returns true if tablespace should be encrypted */
+	bool should_encrypt() const {
+		return ((encryption == FIL_SPACE_ENCRYPTION_ON) ||
+			(srv_encrypt_tables &&
+				encryption == FIL_SPACE_ENCRYPTION_DEFAULT));
+	}
+
+	/** Return true if tablespace is encrypted. */
+	bool is_encrypted() const {
+		return (encryption != FIL_SPACE_ENCRYPTION_OFF);
+	}
+
+	/** Return true if default tablespace encryption is used, */
+	bool is_default_encryption() const {
+		return (encryption == FIL_SPACE_ENCRYPTION_DEFAULT);
+	}
+
+	/** Return true if tablespace is not encrypted. */
+	bool not_encrypted() const {
+		return (encryption == FIL_SPACE_ENCRYPTION_OFF);
+	}
+
+	/** Is this tablespace closing. */
+	bool is_closing(bool is_fixed) {
+		bool closed;
+		if (!is_fixed) {
+			mutex_enter(&mutex);
+		}
+		closed = closing;
+		if (!is_fixed) {
+			mutex_exit(&mutex);
+		}
+		return closed;
+	}
+
 	uint min_key_version; // min key version for this space
 	ulint page0_offset;   // byte offset on page 0 for crypt data
 	fil_encryption_t encryption; // Encryption setup
 
 	ib_mutex_t mutex;   // mutex protecting following variables
 	bool closing;	    // is tablespace being closed
-	bool inited;
+
+	/** Return code from encryption_key_get_latest_version.
+        If ENCRYPTION_KEY_VERSION_INVALID encryption plugin
+	could not find the key and there is no need to call
+	get_latest_key_version again as keys are read only
+	at startup. */
+	uint key_found;
+
 	fil_space_rotate_state_t rotate_state;
 };
 
@@ -215,7 +328,7 @@ fil_space_check_encryption_read(
 
 /******************************************************************
 Decrypt a page
-@return true if page is decrypted, false if not. */
+@return true if page decrypted, false if not.*/
 UNIV_INTERN
 bool
 fil_space_decrypt(
@@ -223,9 +336,10 @@ fil_space_decrypt(
 	fil_space_crypt_t*	crypt_data,	/*!< in: crypt data */
 	byte*			tmp_frame,	/*!< in: temporary buffer */
 	ulint			page_size,	/*!< in: page size */
-	byte*			src_frame,	/*!< in:out: page buffer */
-	dberr_t*		err);		/*!< in: out: DB_SUCCESS or
+	byte*			src_frame,	/*!< in: out: page buffer */
+	dberr_t*		err)		/*!< in: out: DB_SUCCESS or
 						error code */
+	MY_ATTRIBUTE((warn_unused_result));
 
 /*********************************************************************
 Encrypt buffer page
@@ -242,31 +356,46 @@ fil_space_encrypt(
 	ulint	size,		/*!< in: size of data to encrypt */
 	byte*	dst_frame);	/*!< in: where to encrypt to */
 
-/*********************************************************************
-Decrypt buffer page
-@return decrypted page, or original not encrypted page if decrypt is
+/******************************************************************
+Decrypt a page
+@param[in]	space			Tablespace id
+@param[in]	tmp_frame		Temporary buffer used for decrypting
+@param[in]	page_size		Page size
+@param[in,out]	src_frame		Page to decrypt
+@param[out]	decrypted		true if page was decrypted
+@return decrypted page, or original not encrypted page if decryption is
 not needed.*/
 UNIV_INTERN
 byte*
 fil_space_decrypt(
 /*==============*/
-	ulint	space,		/*!< in: tablespace id */
-	byte*	src_frame,	/*!< in: page frame */
-	ulint	page_size,	/*!< in: size of data to encrypt */
-	byte*	dst_frame)	/*!< in: where to decrypt to */
+	ulint	space,
+	byte*	src_frame,
+	ulint	page_size,
+	byte*	dst_frame,
+	bool*	decrypted)
 	__attribute__((warn_unused_result));
 
 /*********************************************************************
-fil_space_verify_crypt_checksum
-NOTE: currently this function can only be run in single threaded mode
-as it modifies srv_checksum_algorithm (temporarily)
+Verify that post encryption checksum match calculated checksum.
+This function should be called only if tablespace contains crypt_data
+metadata (this is strong indication that tablespace is encrypted).
+Function also verifies that traditional checksum does not match
+calculated checksum as if it does page could be valid unencrypted,
+encrypted, or corrupted.
+@param[in]	page		Page to verify
+@param[in]	zip_size	zip size
+@param[in]	space		Tablespace
+@param[in]	pageno		Page no
 @return true if page is encrypted AND OK, false otherwise */
 UNIV_INTERN
 bool
 fil_space_verify_crypt_checksum(
-/*============================*/
-	const byte* src_frame,/*!< in: page frame */
-	ulint zip_size);      /*!< in: size of data to encrypt */
+	byte*			page,
+	ulint			zip_size,
+	const fil_space_t*	space,
+	ulint			pageno)
+	__attribute__((warn_unused_result));
 
 /*********************************************************************
 Init threads for key rotation */
@@ -281,12 +410,6 @@ void
 fil_crypt_set_thread_cnt(
 /*=====================*/
 	uint new_cnt); /*!< in: requested #threads */
-
-/*********************************************************************
-End threads for key rotation */
-UNIV_INTERN
-void
-fil_crypt_threads_end();
 
 /*********************************************************************
 Cleanup resources for threads for key rotation */
